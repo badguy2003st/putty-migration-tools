@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Build script for creating standalone executables.
+Build script for creating standalone executables using Nuitka.
 
-Builds single-file executables for Windows and Linux.
+Builds native single-file executables for Windows and Linux.
 
 Usage:
     python build.py                    # Build for current platform
-    python build.py --version 1.0.1    # Specify version
+    python build.py --version 1.0.3    # Specify version
     python build.py --debug            # Debug build
 """
 
@@ -31,13 +31,34 @@ def get_platform_info():
         raise RuntimeError(f"Unsupported platform: {system}. Only Windows and Linux are supported.")
 
 
+def ensure_nuitka_installed():
+    """Ensure Nuitka is installed."""
+    try:
+        import nuitka
+        print("✓ Nuitka is installed")
+        return True
+    except ImportError:
+        print("Nuitka not found. Installing...")
+        try:
+            subprocess.run(
+                [sys.executable, '-m', 'pip', 'install', 'nuitka', 'ordered-set'],
+                check=True
+            )
+            print("✓ Nuitka installed successfully")
+            return True
+        except subprocess.CalledProcessError:
+            print("ERROR: Failed to install Nuitka")
+            print("   Please install manually: pip install nuitka ordered-set")
+            return False
+
+
 def build_binary(version="1.0.0", debug=False):
     """
-    Build binary for current platform using PyInstaller.
+    Build binary for current platform using Nuitka.
     
     Args:
         version: Version string for binary name
-        debug: Enable debug mode (console visible, no UPX compression)
+        debug: Enable debug mode
     """
     platform_name, ext = get_platform_info()
     binary_name = f"putty-migrate-v{version}-{platform_name}{ext}"
@@ -47,15 +68,13 @@ def build_binary(version="1.0.0", debug=False):
     print("=" * 60)
     print(f"Platform: {platform_name}")
     print(f"Binary: {binary_name}")
+    print(f"Compiler: Nuitka")
+    print(f"Mode: --onefile (single executable)")
     print(f"Debug: {debug}")
     print()
     
-    # Check if PyInstaller is installed
-    try:
-        import PyInstaller
-    except ImportError:
-        print("ERROR: PyInstaller not found!")
-        print("   Install with: pip install pyinstaller")
+    # Ensure Nuitka is installed
+    if not ensure_nuitka_installed():
         return False
     
     # Clean previous builds
@@ -67,79 +86,60 @@ def build_binary(version="1.0.0", debug=False):
     
     print()
     
-    # Build PyInstaller command
+    # Build Nuitka command
     cmd = [
-        'pyinstaller',
-        '--onedir',                                     # Directory mode (more reliable)
-        '--name', binary_name,                          # Output name
-        '--console',                                    # Console app
+        sys.executable, '-m', 'nuitka',
+        '--onefile',                                    # Single executable file
+        '--assume-yes-for-downloads',                   # Auto-download compiler (MinGW on Windows)
+        '--output-dir=dist',                            # Output directory
+        f'--output-filename={binary_name}',             # Output filename
+        '--enable-plugin=anti-bloat',                   # Reduce binary size
+        '--nofollow-import-to=tkinter',                 # Exclude unused GUI
+        '--nofollow-import-to=pytest',                  # Exclude test framework
+        '--nofollow-import-to=setuptools',              # Exclude setuptools
+        '--include-package=tui',                        # Include all tui modules
+        '--include-package=textual',                    # Include textual
+        '--include-package=puttykeys',                  # Include puttykeys
+        '--include-package=cryptography',               # Include cryptography
+        '--include-package=rich',                       # Include rich (textual dependency)
+        '--include-package-data=rich',                  # Include rich data files (unicode data)
+        '--include-package-data=textual',               # Include textual data files
+        '--follow-import-to=rich',                      # Follow all rich imports
     ]
     
     # Add data files (TUI styles)
     styles_path = Path('tui/ui/styles.tcss')
     if styles_path.exists():
         if platform.system().lower() == 'windows':
-            cmd.extend(['--add-data', f'{styles_path};tui/ui'])
+            cmd.append(f'--include-data-files={styles_path}=tui/ui/styles.tcss')
         else:
-            cmd.extend(['--add-data', f'{styles_path}:tui/ui'])
-    
-    # Hidden imports (modules that PyInstaller might miss)
-    hidden_imports = [
-        'textual',
-        'textual.app',
-        'textual.screen',
-        'textual.widgets',
-        'textual.containers',
-        'puttykeys',
-        'cryptography',
-        'cryptography.hazmat',
-        'cryptography.hazmat.primitives',
-        'cryptography.hazmat.backends',
-        'tui.cli.convert_ppk',
-        'tui.cli.export_bitwarden',
-        'tui.cli.export_tabby',
-        'tui.cli.export_ssh_config',
-    ]
-    
-    for module in hidden_imports:
-        cmd.extend(['--hidden-import', module])
+            cmd.append(f'--include-data-files={styles_path}=tui/ui/styles.tcss')
     
     # Platform-specific options
     if platform.system().lower() == 'windows':
+        cmd.append('--windows-console-mode=force')      # Always show console (for TUI/CLI tool)
+        
         # Add icon if available
         icon_path = Path('icon.ico')
         if icon_path.exists():
-            cmd.extend(['--icon', str(icon_path)])
-        
-        # Windows-specific imports
-        cmd.extend(['--hidden-import', 'winreg'])
+            cmd.append(f'--windows-icon-from-ico={icon_path}')
     
-    # Debug or production build
+    # Debug mode
     if debug:
-        cmd.append('--debug=all')
-    else:
-        cmd.append('--strip')          # Strip symbols (Linux)
+        cmd.append('--debug')
     
-    # CRITICAL FIXES for binary reliability
-    cmd.append('--noupx')                        # Prevent Windows DLL load errors
-    cmd.extend(['--collect-all', 'tui'])         # Include all tui modules (prevents import errors)
-    cmd.extend(['--copy-metadata', 'textual'])   # Preserve package metadata
-    cmd.extend(['--copy-metadata', 'puttykeys']) # Preserve package metadata
-    
-    # Windows-specific fixes
-    if platform.system().lower() == 'windows':
-        cmd.extend(['--runtime-tmpdir', '.'])    # Use current directory instead of TEMP
-    
-    # Entry point (outside tui package for better PyInstaller compatibility)
+    # Entry point
     cmd.append('putty_migrate.py')
     
     # Show command (for debugging)
-    print("PyInstaller command:")
+    print("Nuitka command:")
     print("   " + " ".join(cmd))
     print()
     
-    # Run PyInstaller
-    print("Running PyInstaller...")
+    # Run Nuitka
+    print("Running Nuitka compiler...")
+    print("NOTE: First build will download MinGW64 compiler (~100 MB) and may take 5-10 minutes")
+    print("      Subsequent builds will be faster (~3-5 minutes)")
     print()
     
     try:
@@ -151,15 +151,13 @@ def build_binary(version="1.0.0", debug=False):
             print("  BUILD SUCCESSFUL")
             print("=" * 60)
             
-            # Get binary info (onedir creates a directory, executable is inside)
-            binary_dir = Path('dist') / binary_name
-            binary_path = binary_dir / binary_name  # Executable is inside the directory
+            # Get binary info
+            binary_path = Path('dist') / binary_name
             
             if binary_path.exists():
                 size_mb = binary_path.stat().st_size / (1024 * 1024)
                 
-                print(f"Binary directory: {binary_dir}")
-                print(f"Binary executable: {binary_path}")
+                print(f"Binary: {binary_path}")
                 print(f"Size: {size_mb:.1f} MB")
                 print("=" * 60)
                 print()
@@ -170,15 +168,20 @@ def build_binary(version="1.0.0", debug=False):
                 test_result = subprocess.run(test_cmd, capture_output=True, text=True)
                 
                 if test_result.returncode == 0:
-                    print("   OK: Binary works!")
+                    print("   ✓ Binary works!")
                     print(f"   Output: {test_result.stdout.strip()}")
                 else:
-                    print("   WARNING: Binary test failed!")
+                    print("   ⚠ WARNING: Binary test failed!")
                     print(f"   Error: {test_result.stderr}")
                 
                 print()
                 print("Binary ready for distribution!")
                 print(f"   Location: {binary_path.absolute()}")
+                print()
+                print("Next steps:")
+                print(f"   1. Test the binary: {binary_path}")
+                print(f"   2. Try: {binary_path} --help")
+                print(f"   3. Try: {binary_path}  (launch TUI)")
                 print()
                 
                 return True
@@ -200,7 +203,7 @@ def build_binary(version="1.0.0", debug=False):
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description='Build PuTTY Migration Tools binary',
+        description='Build PuTTY Migration Tools binary using Nuitka',
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
@@ -213,7 +216,7 @@ def main():
     parser.add_argument(
         '--debug',
         action='store_true',
-        help='Debug build (no compression, verbose output)'
+        help='Debug build (verbose output)'
     )
     
     args = parser.parse_args()
