@@ -55,12 +55,34 @@ jobs:
         run: |
           python build.py --version ${{ steps.get_version.outputs.version }}
       
+      - name: Package binary (Windows)
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          cd dist
+          Compress-Archive -Path * -DestinationPath putty-migrate-v${{ steps.get_version.outputs.version }}-windows.zip
+      
+      - name: Package binary (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          cd dist
+          tar -czf putty-migrate-v${{ steps.get_version.outputs.version }}-linux.tar.gz *
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: putty-migrate-${{ matrix.platform }}
-          path: dist/*
+          path: dist/*.zip
           retention-days: 5
+        if: matrix.platform == 'windows'
+      
+      - name: Upload artifact (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: putty-migrate-${{ matrix.platform }}
+          path: dist/*.tar.gz
+          retention-days: 5
+        if: matrix.platform == 'linux'
   
   release:
     name: Create Release
@@ -94,17 +116,19 @@ jobs:
             
             ### 📥 Downloads
             
-            - **Windows**: `putty-migrate-v${{ steps.get_version.outputs.version }}-windows.exe`
-            - **Linux**: `putty-migrate-v${{ steps.get_version.outputs.version }}-linux`
+            - **Windows**: `putty-migrate-v${{ steps.get_version.outputs.version }}-windows.zip`
+            - **Linux**: `putty-migrate-v${{ steps.get_version.outputs.version }}-linux.tar.gz`
             
             ### 🚀 Quick Start
             
             ```bash
             # Windows
-            .\putty-migrate-v${{ steps.get_version.outputs.version }}-windows.exe
+            1. Extract putty-migrate-v${{ steps.get_version.outputs.version }}-windows.zip
+            2. Run putty-migrate-v${{ steps.get_version.outputs.version }}-windows.exe
             
             # Linux
-            chmod +x putty-migrate-v${{ steps.get_version.outputs.version }}-linux
+            tar -xzf putty-migrate-v${{ steps.get_version.outputs.version }}-linux.tar.gz
+            cd putty-migrate-v${{ steps.get_version.outputs.version }}-linux
             ./putty-migrate-v${{ steps.get_version.outputs.version }}-linux
             ```
             

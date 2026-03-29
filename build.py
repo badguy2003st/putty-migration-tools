@@ -70,7 +70,7 @@ def build_binary(version="1.0.0", debug=False):
     # Build PyInstaller command
     cmd = [
         'pyinstaller',
-        '--onefile',                                    # Single file
+        '--onedir',                                     # Directory mode (more reliable)
         '--name', binary_name,                          # Output name
         '--console',                                    # Console app
     ]
@@ -130,8 +130,8 @@ def build_binary(version="1.0.0", debug=False):
     if platform.system().lower() == 'windows':
         cmd.extend(['--runtime-tmpdir', '.'])    # Use current directory instead of TEMP
     
-    # Entry point
-    cmd.append('tui/__main__.py')
+    # Entry point (outside tui package for better PyInstaller compatibility)
+    cmd.append('putty_migrate.py')
     
     # Show command (for debugging)
     print("PyInstaller command:")
