@@ -130,6 +130,34 @@ See **[Security Guide](docs/advanced/security.md)** for detailed best practices.
 
 ---
 
+## ⚠️ Known Limitations (v1.0.3)
+
+### PPK v3 Format Not Supported
+
+**Issue**: PuTTY 0.75+ (released February 2021) uses PPK v3 format by default with Argon2id encryption. This format is **not supported** by the `puttykeys` library v1.0.3.
+
+**Impact**: ~90% of users with recent PuTTY installations have PPK v3 keys.
+
+**Error Message**: "Unsupported key type. Only RSA and Ed25519 keys are supported."
+
+**Workaround**: Convert PPK v3 → PPK v2 in PuTTYgen:
+1. Open PuTTYgen → Load your `.ppk`  file
+2. **Key** menu → **Parameters for saving key files...**
+3. Set **PPK file version: 2**
+4. **Save private key**
+
+**Future**: PPK v3 support planned for **v1.0.4** (mid-April 2026)
+
+**Documentation**: See [Troubleshooting Guide](docs/troubleshooting.md#-unsupported-key-type-despite-rsaed25519-key) for detailed instructions.
+
+### Other Limitations
+- **DSA keys**: Not supported (deprecated, insecure)
+- **ECDSA keys** (except Ed25519): Not supported by puttykeys library
+- **Encrypted PPK in TUI**: Password prompt not available (CLI `--password` flag works)
+- **`--to-ssh` flag**: Linux only
+
+---
+
 ## 🤝 Contributing
 
 Contributions welcome! See **[Contributing Guide](docs/development/contributing.md)**.

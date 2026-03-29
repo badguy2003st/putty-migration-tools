@@ -71,12 +71,59 @@ putty-migrate convert -v
 
 **Solutions:**
 ```bash
-# Use TUI (prompts for password)
-putty-migrate
-
-# Or provide password
+# Use CLI with password flag
 putty-migrate convert --password "YourPassword"
 ```
+
+**Note:** TUI password prompt is planned for v1.0.4.
+
+### ⚠️ "Unsupported key type" despite RSA/Ed25519 Key
+
+**Most Common Cause:** PPK v3 format (not supported in v1.0.3)
+
+#### Check Your PPK Version
+
+Open your `.ppk` file in a text editor and check the first line:
+
+- `PuTTY-User-Key-File-2: ssh-rsa` → ✅ **Supported** (PPK v2)
+- `PuTTY-User-Key-File-3: ssh-rsa` → ❌ **Not Supported** (PPK v3)
+
+#### Background
+
+**PuTTY 0.75+** (released February 2021) uses PPK v3 format by default with Argon2id key derivation for better security against brute-force attacks. However, this format is not supported by the `puttykeys` library v1.0.3.
+
+**Impact:** ~90% of users with recent PuTTY installations have PPK v3 keys.
+
+#### Solution: Convert PPK v3 → PPK v2
+
+**Method 1: In PuTTYgen (Recommended)**
+
+1. Open **PuTTYgen.exe**
+2. Click **Load** and select your `.ppk` file
+3. Enter your passphrase if prompted
+4. Go to menu: **Key** → **Parameters for saving key files...**
+5. Under "PPK file version", select **2**
+6. Click **OK**
+7. Click **Save private key**
+8. Now use PuTTY Migration Tools with the v2 file
+
+**Method 2: Command Line (puttygen)**
+
+```cmd
+REM Convert v3 to v2
+puttygen mykey-v3.ppk -O private -o mykey-v2.ppk
+
+REM Then use migration tool
+putty-migrate convert -i . -o openssh_keys
+```
+
+#### Alternative: Direct Export to OpenSSH (Not Recommended)
+
+While PuTTYgen can export directly to OpenSSH format (**Conversions** → **Export OpenSSH key**), this may cause formatting issues. Converting to PPK v2 first, then using this tool is more reliable.
+
+#### Future Support
+
+PPK v3 support is planned for **v1.0.4** (mid-April 2026). See `PPK_V3_IMPLEMENTATION_PLAN.md` for details.
 
 ---
 

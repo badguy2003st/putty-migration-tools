@@ -214,13 +214,55 @@ python build.py --version 1.0.3
 
 ### 📝 Known Issues
 
+#### Build System
 - First build on fresh system takes longer due to compiler download
 - Binary size increased by ~4 MB compared to PyInstaller
 - Node.js 20 deprecation warnings in GitHub Actions (cosmetic only)
 
+#### PPK v3 Format Not Supported ⚠️ **CRITICAL**
+
+**Problem**: PuTTY 0.75+ (released February 2021) uses PPK v3 format by default with Argon2id encryption. This format is **not supported** by the `puttykeys` library v1.0.3.
+
+**Impact**: ~90% of users with recent PuTTY installations have PPK v3 keys.
+
+**Error Message**: "Unsupported key type. Only RSA and Ed25519 keys are supported." (misleading - actually a format version issue)
+
+**Workaround**: Users must convert PPK v3 to PPK v2 in PuTTYgen:
+1. Open PuTTYgen → Load `.ppk` file
+2. **Key** menu → **Parameters for saving key files...**
+3. Set **PPK file version: 2**
+4. Click **OK** → **Save private key**
+
+**Direct OpenSSH export from PuTTYgen**: Not recommended (may cause formatting issues)
+
+**Future Fix**: PPK v3 support planned for v1.0.4 (mid-April 2026). See `PPK_V3_IMPLEMENTATION_PLAN.md`.
+
+**Documentation**: Detailed instructions in [Troubleshooting Guide](docs/troubleshooting.md#-unsupported-key-type-despite-rsaed25519-key).
+
+**Test Files**: Located in `test/ppk_keys/` with both v2 (working) and v3 (not working) samples.
+
+#### Other Limitations
+- **TUI Password Prompt**: Not available for encrypted PPK files (CLI `--password` flag works)
+- **DSA Keys**: Not supported (deprecated and insecure)
+- **ECDSA Keys** (except Ed25519): Not supported by puttykeys library
+- **Password on Unencrypted Keys**: Shows confusing error instead of ignoring password
+
 ---
 
 ## [Unreleased]
+
+### Planned for v1.0.4 (mid-April 2026)
+
+#### Major Features
+- **PPK v3 Support** - Argon2id decryption for modern PuTTY keys
+- **TUI Password Prompt** - Interactive password input for encrypted keys
+- **Multi-Password File Support** - `--password-file` flag for batch operations
+- **Re-encryption Support** - `--keep-encryption` flag to maintain key encryption
+- **Smart Password Handling** - Gracefully handle password on unencrypted keys
+
+See `PPK_V3_IMPLEMENTATION_PLAN.md` for complete implementation plan.
+
+---
 
 No unreleased changes yet.
 
