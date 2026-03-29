@@ -128,6 +128,98 @@ Potential future enhancements:
 
 ---
 
+## [1.0.3] - 2026-03-29
+
+### 🔧 Changed - Major Build System Migration
+
+#### Compiler Migration: PyInstaller → Nuitka
+- **Native Compilation**: Python code now compiled to C for better performance and reliability
+- **Single File Executables**: True standalone binaries (no archive extraction)
+- **Entry Point**: Moved to `putty_migrate.py` (outside tui package) for better module resolution
+
+#### Technical Improvements
+- Native Python-to-C compilation using Nuitka
+- MinGW64 compiler for Windows (auto-downloaded during build)
+- GCC compiler for Linux (system native)
+- Build time: ~20-25 minutes (Windows), ~10-12 minutes (Linux)
+- Binary size: ~20 MB (slightly larger but fully self-contained)
+- `--windows-console-mode=force` for proper console tool behavior
+
+### 🐛 Fixed - Critical Runtime Issues
+
+#### Windows DLL Loading
+- **Fixed**: "Failed to load Python DLL python311.dll" error
+- **Fixed**: Runtime DLL loading failures on fresh Windows installations
+- **Fixed**: Missing system library dependencies
+
+#### Module Loading
+- **Fixed**: Missing `rich._unicode_data.unicode17-0-0` module
+- **Fixed**: Runtime module import errors in textual/rich
+- **Added**: Explicit `--include-package-data=rich` flag
+- **Added**: Explicit `--include-package-data=textual` flag
+
+#### Build System
+- **Fixed**: Temp directory extraction issues
+- **Fixed**: Platform-specific DLL path resolution
+- **Fixed**: All PyInstaller onefile/onedir extraction problems
+- **Fixed**: Unicode encoding errors in build script (GitHub Actions compatibility)
+
+### 📦 Distribution Changes
+
+#### Before (v1.0.0-v1.0.2)
+- Windows: ZIP archive containing exe + _internal folder (~16 MB)
+- Linux: TAR.GZ archive containing binary + dependencies (~14 MB)
+- Required extraction before use
+
+#### Now (v1.0.3+)
+- Windows: Single `putty-migrate-v1.0.3-windows.exe` (~20 MB)
+- Linux: Single `putty-migrate-v1.0.3-linux` (~18 MB)
+- No extraction needed - download and run!
+
+### 🔐 Security & Reliability
+
+- No runtime DLL loading (all embedded)
+- No temp directory extraction (security improvement)
+- Reduced attack surface (single file vs multiple DLLs)
+- Native compilation reduces runtime overhead
+
+### 📖 Developer Notes
+
+#### Build Process
+```bash
+# Install Nuitka
+pip install nuitka ordered-set
+
+# Build
+python build.py --version 1.0.3
+
+# First build downloads MinGW64 (~100 MB) on Windows
+# Subsequent builds are cached and faster
+```
+
+#### Backup Files Created
+- `build.py.pyinstaller.backup` - Original PyInstaller build script
+- `.github/workflows/release.yml.pyinstaller.backup` - Original workflow
+- `BACKUP_INFO.md` - Restoration instructions if needed
+
+### ⚠️ Breaking Changes
+
+**None** - All command-line interfaces and functionality remain identical.
+
+### 🎯 Tested Platforms
+
+- ✅ Windows 11 (local build successful)
+- ✅ Windows Server 2022 (GitHub Actions - 23m45s)
+- ✅ Ubuntu Latest (GitHub Actions - 11m40s)
+
+### 📝 Known Issues
+
+- First build on fresh system takes longer due to compiler download
+- Binary size increased by ~4 MB compared to PyInstaller
+- Node.js 20 deprecation warnings in GitHub Actions (cosmetic only)
+
+---
+
 ## [Unreleased]
 
 No unreleased changes yet.
