@@ -1,4 +1,4 @@
-# Conflict Handling - Linux ~/.ssh
+Conflict Handling - Linux ~/.ssh
 
 Managing key conflicts when copying to `~/.ssh/` on Linux.
 

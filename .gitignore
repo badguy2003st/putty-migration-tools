@@ -29,6 +29,7 @@ wheels/
 htmlcov/
 .tox/
 test_ssh_output/
+test/
 
 # IDEs
 .vscode/
@@ -54,8 +55,6 @@ tabby-config.json
 ssh-config
 *.bak
 
-# Keep demo files
-!tabby-config-demo.json
 
 # Development files
 test_*.py
@@ -72,3 +71,4 @@ RELEASE_FILES.md
 CLEANUP_*.md
 TEST-SCRIPT-README.md
 test-cli-full.ps1
+TESTING.md

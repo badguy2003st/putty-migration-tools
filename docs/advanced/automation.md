@@ -1,4 +1,4 @@
-# Automation & Scripting
+Automation & Scripting
 
 Automate PuTTY migrations with scripts and CI/CD pipelines.
 
