@@ -76,7 +76,7 @@ def build_binary(version="1.0.0", debug=False):
     ]
     
     # Add data files (TUI styles)
-    styles_path = Path('putty-migration-tools/tui/ui/styles.tcss')
+    styles_path = Path('tui/ui/styles.tcss')
     if styles_path.exists():
         if platform.system().lower() == 'windows':
             cmd.extend(['--add-data', f'{styles_path};tui/ui'])
@@ -123,7 +123,7 @@ def build_binary(version="1.0.0", debug=False):
             cmd.append('--upx-dir=upx')
     
     # Entry point
-    cmd.append('putty-migration-tools/tui/__main__.py')
+    cmd.append('tui/__main__.py')
     
     # Show command (for debugging)
     print("🔨 PyInstaller command:")
