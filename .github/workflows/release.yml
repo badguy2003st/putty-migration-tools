@@ -32,7 +32,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r putty-migration-tools/tui/requirements.txt
+          pip install -r tui/requirements.txt
           pip install pyinstaller
       
       - name: Extract version from tag
@@ -48,14 +48,13 @@ jobs:
       
       - name: Build binary
         run: |
-          cd putty-migration-tools
           python build.py --version ${{ steps.get_version.outputs.version }}
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: putty-migrate-${{ matrix.platform }}
-          path: putty-migration-tools/dist/*
+          path: dist/*
           retention-days: 5
   
   release:
@@ -104,9 +103,9 @@ jobs:
             
             ### 📖 Documentation
             
-            - [README.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/README.md)
-            - [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/CHANGELOG.md)
-            - [TESTING.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/TESTING.md)
+            - [README.md](https://github.com/${{ github.repository }}/blob/main/README.md)
+            - [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+            - [TESTING.md](https://github.com/${{ github.repository }}/blob/main/TESTING.md)
             
             ### ✨ Features
             
@@ -117,7 +116,7 @@ jobs:
             - 🎨 Tabby Terminal Export
             - ⚙️ SSH Config Generation
             
-            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/CHANGELOG.md) for full release notes.
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for full release notes.
           files: |
             artifacts/**/*
           draft: false
