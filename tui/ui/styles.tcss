@@ -1,0 +1,253 @@
+/* PuTTY Migration Tools - TUI Styles */
+
+/* ============================================ */
+/* Global Styles */
+/* ============================================ */
+
+Screen {
+    background: $surface;
+}
+
+/* ============================================ */
+/* Title Bar */
+/* ============================================ */
+
+Header {
+    background: $accent;
+    color: $text;
+    text-style: bold;
+    padding: 0 1;
+}
+
+Footer {
+    background: $panel;
+    color: $text-muted;
+    padding: 0 1;
+}
+
+/* ============================================ */
+/* Containers */
+/* ============================================ */
+
+.menu-container {
+    width: 80;
+    height: auto;
+    border: heavy $primary;
+    padding: 2 4;
+    background: $surface;
+}
+
+.content-container {
+    width: 100%;
+    height: 100%;
+    padding: 1 2;
+}
+
+/* ============================================ */
+/* Buttons */
+/* ============================================ */
+
+Button {
+    width: 100%;
+    margin: 1 0;
+    background: $boost;
+    border: solid $primary;
+    color: $text;
+    text-style: bold;
+}
+
+Button:hover {
+    background: $primary;
+    border: solid $accent;
+    color: $text;
+    text-style: bold;
+}
+
+Button:focus {
+    background: $accent;
+    border: heavy $warning;
+    text-style: bold;
+}
+
+Button.-primary:hover {
+    background: $accent;
+    border: heavy $accent-lighten-1;
+}
+
+Button.-primary:focus {
+    background: $accent-darken-1;
+    border: heavy $warning;
+}
+
+Button.-primary {
+    background: $primary;
+    border: solid $accent;
+}
+
+Button.-success {
+    background: $success;
+    border: solid $success-darken-2;
+}
+
+Button.-warning {
+    background: $warning;
+    border: solid $warning-darken-2;
+}
+
+Button.-error {
+    background: $error;
+    border: solid $error-darken-2;
+}
+
+Button.-error:hover {
+    background: $error-lighten-1;
+    border: heavy $error-lighten-2;
+    text-style: bold;
+}
+
+Button.-error:focus {
+    background: $error-darken-1;
+    border: heavy $warning;
+    text-style: bold;
+}
+
+/* ============================================ */
+/* Text Styles */
+/* ============================================ */
+
+.title {
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    padding: 1 0;
+}
+
+.subtitle {
+    text-align: center;
+    color: $text-muted;
+    padding: 0 0 1 0;
+}
+
+.status {
+    color: $text-muted;
+    padding: 1 0;
+}
+
+.success {
+    color: $success;
+    text-style: bold;
+}
+
+.error {
+    color: $error;
+    text-style: bold;
+}
+
+.warning {
+    color: $warning;
+    text-style: bold;
+}
+
+.info {
+    color: $accent;
+}
+
+/* ============================================ */
+/* Main Menu Specific */
+/* ============================================ */
+
+#menu-title {
+    text-align: center;
+    text-style: bold;
+    color: $accent;
+    width: 100%;
+    height: 3;
+    content-align: center middle;
+}
+
+#menu-status {
+    text-align: center;
+    color: $text-muted;
+    width: 100%;
+    height: auto;
+    padding: 1 0 2 0;
+}
+
+/* ============================================ */
+/* Lists and Tables */
+/* ============================================ */
+
+DataTable {
+    height: auto;
+    border: solid $primary;
+}
+
+ListView {
+    border: solid $primary;
+    background: $surface;
+}
+
+ListItem {
+    padding: 0 1;
+}
+
+ListItem:hover {
+    background: $boost;
+}
+
+/* ============================================ */
+/* Progress and Status */
+/* ============================================ */
+
+ProgressBar {
+    border: solid $primary;
+    background: $surface;
+}
+
+Static.log-output {
+    border: solid $primary;
+    background: $surface;
+    height: 20;
+    overflow-y: auto;
+}
+
+/* ============================================ */
+/* Input Fields */
+/* ============================================ */
+
+Input {
+    border: solid $primary;
+    background: $surface;
+    width: 100%;
+    margin: 1 0;
+}
+
+Input:focus {
+    border: solid $accent;
+}
+
+RadioSet {
+    border: solid $primary;
+    background: $surface;
+    padding: 1;
+}
+
+RadioButton {
+    padding: 0 1;
+}
+
+/* ============================================ */
+/* Dialogs */
+/* ============================================ */
+
+.dialog {
+    align: center middle;
+}
+
+.dialog-content {
+    width: 60;
+    height: auto;
+    border: heavy $primary;
+    padding: 2 4;
+    background: $panel;
+}

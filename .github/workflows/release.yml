@@ -1,0 +1,126 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (v1.0.0, v1.0.1, etc.)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            ext: .exe
+          - os: ubuntu-latest
+            platform: linux
+            ext: ''
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r putty-migration-tools/tui/requirements.txt
+          pip install pyinstaller
+      
+      - name: Extract version from tag
+        id: get_version
+        shell: bash
+        run: |
+          if [ "${{ github.ref_type }}" == "tag" ]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION="dev"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Build binary
+        run: |
+          cd putty-migration-tools
+          python build.py --version ${{ steps.get_version.outputs.version }}
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: putty-migrate-${{ matrix.platform }}
+          path: putty-migration-tools/dist/*
+          retention-days: 5
+  
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: PuTTY Migration Tools v${{ steps.get_version.outputs.version }}
+          body: |
+            ## PuTTY Migration Tools v${{ steps.get_version.outputs.version }}
+            
+            ### 📥 Downloads
+            
+            - **Windows**: `putty-migrate-v${{ steps.get_version.outputs.version }}-windows.exe`
+            - **Linux**: `putty-migrate-v${{ steps.get_version.outputs.version }}-linux`
+            
+            ### 🚀 Quick Start
+            
+            ```bash
+            # Windows
+            .\putty-migrate-v${{ steps.get_version.outputs.version }}-windows.exe
+            
+            # Linux
+            chmod +x putty-migrate-v${{ steps.get_version.outputs.version }}-linux
+            ./putty-migrate-v${{ steps.get_version.outputs.version }}-linux
+            ```
+            
+            ### 📖 Documentation
+            
+            - [README.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/README.md)
+            - [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/CHANGELOG.md)
+            - [TESTING.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/TESTING.md)
+            
+            ### ✨ Features
+            
+            - 🖥️ Interactive TUI
+            - ⌨️ Powerful CLI
+            - 🔐 Bitwarden Export
+            - 📁 PPK → OpenSSH Conversion
+            - 🎨 Tabby Terminal Export
+            - ⚙️ SSH Config Generation
+            
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/putty-migration-tools/CHANGELOG.md) for full release notes.
+          files: |
+            artifacts/**/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,15 @@
+# PuTTY Migration Tools - TUI Requirements
+# Python 3.8+ required
+
+# UI Framework (primary)
+textual>=0.41.0
+
+# Rich text/console (fallback + Textual dependency)
+rich>=13.0.0
+
+# PPK to OpenSSH conversion (pure Python, cross-platform)
+puttykeys>=1.0.3
+
+# Optional: Better performance for hashing
+# (hashlib is built-in, but these can improve performance)
+# No external dependencies needed for core functionality
