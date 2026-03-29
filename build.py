@@ -35,7 +35,7 @@ def ensure_nuitka_installed():
     """Ensure Nuitka is installed."""
     try:
         import nuitka
-        print("✓ Nuitka is installed")
+        print("[OK] Nuitka is installed")
         return True
     except ImportError:
         print("Nuitka not found. Installing...")
@@ -44,7 +44,7 @@ def ensure_nuitka_installed():
                 [sys.executable, '-m', 'pip', 'install', 'nuitka', 'ordered-set'],
                 check=True
             )
-            print("✓ Nuitka installed successfully")
+            print("[OK] Nuitka installed successfully")
             return True
         except subprocess.CalledProcessError:
             print("ERROR: Failed to install Nuitka")
@@ -168,10 +168,10 @@ def build_binary(version="1.0.0", debug=False):
                 test_result = subprocess.run(test_cmd, capture_output=True, text=True)
                 
                 if test_result.returncode == 0:
-                    print("   ✓ Binary works!")
+                    print("   [OK] Binary works!")
                     print(f"   Output: {test_result.stdout.strip()}")
                 else:
-                    print("   ⚠ WARNING: Binary test failed!")
+                    print("   [WARNING] Binary test failed!")
                     print(f"   Error: {test_result.stderr}")
                 
                 print()
