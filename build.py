@@ -54,12 +54,12 @@ def build_binary(version="1.0.0", debug=False):
     try:
         import PyInstaller
     except ImportError:
-        print("❌ PyInstaller not found!")
+        print("ERROR: PyInstaller not found!")
         print("   Install with: pip install pyinstaller")
         return False
     
     # Clean previous builds
-    print("🧹 Cleaning previous builds...")
+    print("Cleaning previous builds...")
     for dir_name in ['build', 'dist']:
         if Path(dir_name).exists():
             shutil.rmtree(dir_name)
@@ -126,12 +126,12 @@ def build_binary(version="1.0.0", debug=False):
     cmd.append('tui/__main__.py')
     
     # Show command (for debugging)
-    print("🔨 PyInstaller command:")
+    print("PyInstaller command:")
     print("   " + " ".join(cmd))
     print()
     
     # Run PyInstaller
-    print("⚙️  Running PyInstaller...")
+    print("Running PyInstaller...")
     print()
     
     try:
@@ -155,35 +155,35 @@ def build_binary(version="1.0.0", debug=False):
                 print()
                 
                 # Test binary
-                print("🧪 Testing binary...")
+                print("Testing binary...")
                 test_cmd = [str(binary_path), '--version']
                 test_result = subprocess.run(test_cmd, capture_output=True, text=True)
                 
                 if test_result.returncode == 0:
-                    print("   ✅ Binary works!")
+                    print("   OK: Binary works!")
                     print(f"   Output: {test_result.stdout.strip()}")
                 else:
-                    print("   ⚠️  Binary test failed!")
+                    print("   WARNING: Binary test failed!")
                     print(f"   Error: {test_result.stderr}")
                 
                 print()
-                print("📦 Binary ready for distribution!")
+                print("Binary ready for distribution!")
                 print(f"   Location: {binary_path.absolute()}")
                 print()
                 
                 return True
             else:
-                print("❌ Binary not found after build!")
+                print("ERROR: Binary not found after build!")
                 return False
         
     except subprocess.CalledProcessError as e:
         print()
-        print("❌ Build failed!")
+        print("ERROR: Build failed!")
         print(f"   Error code: {e.returncode}")
         return False
     except Exception as e:
         print()
-        print(f"❌ Unexpected error: {e}")
+        print(f"ERROR: Unexpected error: {e}")
         return False
 
 
