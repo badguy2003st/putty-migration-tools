@@ -6,10 +6,15 @@ on:
       - 'v*'  # Trigger on version tags (v1.0.0, v1.0.1, etc.)
   workflow_dispatch:  # Allow manual trigger
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # Use Node.js 24 for actions
+
 jobs:
   build:
     name: Build ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read  # Read repository contents
     strategy:
       matrix:
         include:
@@ -62,6 +67,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
+    permissions:
+      contents: write  # Allow creating releases and uploading assets
     
     steps:
       - name: Checkout code
