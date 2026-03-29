@@ -119,8 +119,16 @@ def build_binary(version="1.0.0", debug=False):
         cmd.append('--debug=all')
     else:
         cmd.append('--strip')          # Strip symbols (Linux)
-        if shutil.which('upx'):         # Use UPX if available
-            cmd.append('--upx-dir=upx')
+    
+    # CRITICAL FIXES for binary reliability
+    cmd.append('--noupx')                        # Prevent Windows DLL load errors
+    cmd.extend(['--collect-all', 'tui'])         # Include all tui modules (prevents import errors)
+    cmd.extend(['--copy-metadata', 'textual'])   # Preserve package metadata
+    cmd.extend(['--copy-metadata', 'puttykeys']) # Preserve package metadata
+    
+    # Windows-specific fixes
+    if platform.system().lower() == 'windows':
+        cmd.extend(['--runtime-tmpdir', '.'])    # Use current directory instead of TEMP
     
     # Entry point
     cmd.append('tui/__main__.py')
