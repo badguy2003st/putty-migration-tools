@@ -151,13 +151,15 @@ def build_binary(version="1.0.0", debug=False):
             print("  BUILD SUCCESSFUL")
             print("=" * 60)
             
-            # Get binary info
-            binary_path = Path('dist') / binary_name
+            # Get binary info (onedir creates a directory, executable is inside)
+            binary_dir = Path('dist') / binary_name
+            binary_path = binary_dir / binary_name  # Executable is inside the directory
             
             if binary_path.exists():
                 size_mb = binary_path.stat().st_size / (1024 * 1024)
                 
-                print(f"Binary: {binary_path}")
+                print(f"Binary directory: {binary_dir}")
+                print(f"Binary executable: {binary_path}")
                 print(f"Size: {size_mb:.1f} MB")
                 print("=" * 60)
                 print()
