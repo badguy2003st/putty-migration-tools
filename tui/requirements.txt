@@ -7,6 +7,9 @@ textual>=0.41.0
 # Rich text/console (fallback + Textual dependency)
 rich>=13.0.0
 
+# Cryptography - Core dependency for key operations
+cryptography>=41.0.0
+
 # PPK to OpenSSH conversion - CUSTOM IMPLEMENTATION (v1.1.0+)
 # No external library needed - using ppk_v2_crypto.py + ppk_v3_crypto.py
 
