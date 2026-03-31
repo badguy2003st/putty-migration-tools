@@ -176,14 +176,16 @@ class SSHImportDialog(ModalScreen[SSHImportChoice]):
         # Remove all existing widgets
         await self.query("*").remove()
         
-        # Build new UI for conflict resolution
-        container = Container()
+        # Mount container FIRST (must be attached before mounting children)
+        await self.mount(Container())
+        container = self.query_one(Container)
         
-        container.mount(
+        # Now mount children to the attached container
+        await container.mount(
             Static("⚠️  File Conflicts Detected", classes="dialog-title")
         )
         
-        container.mount(
+        await container.mount(
             Static(
                 f"Found {len(self.conflicts)} existing key(s) in ~/.ssh:",
                 classes="dialog-subtitle"
@@ -195,54 +197,55 @@ class SSHImportDialog(ModalScreen[SSHImportChoice]):
         if len(self.conflicts) > 5:
             conflict_text += f"\n  ... and {len(self.conflicts) - 5} more"
         
-        container.mount(
+        await container.mount(
             Static(conflict_text, classes="conflict-list")
         )
         
-        container.mount(
+        await container.mount(
             Static("How should conflicts be handled?", classes="dialog-subtitle")
         )
         
         # Conflict resolution options (Rename as default)
+        # Mount RadioSet FIRST, then add children
         radio_set = RadioSet(id="conflict-mode")
-        radio_set.mount(
+        await container.mount(radio_set)
+        
+        # Now mount children to the attached RadioSet
+        await radio_set.mount(
             RadioButton(
                 "✓ Rename with number (recommended)",
                 value=True,
                 id="mode-rename"
             )
         )
-        radio_set.mount(
+        await radio_set.mount(
             Static("    Example: oracle → oracle.1 (keeps both keys)")
         )
-        radio_set.mount(
+        await radio_set.mount(
             RadioButton(
                 "Overwrite existing files",
                 id="mode-overwrite"
             )
         )
-        radio_set.mount(
+        await radio_set.mount(
             Static("    Creates backup as .bak (oracle → oracle.bak)")
         )
-        radio_set.mount(
+        await radio_set.mount(
             RadioButton(
                 "Skip existing files",
                 id="mode-skip"
             )
         )
-        radio_set.mount(
+        await radio_set.mount(
             Static("    Only copy keys that don't exist yet")
         )
         
-        container.mount(radio_set)
-        
-        # Buttons
+        # Buttons - mount Horizontal FIRST, then buttons
         button_row = Horizontal()
-        button_row.mount(Button("Continue", variant="primary", id="finish"))
-        button_row.mount(Button("Cancel", id="cancel"))
-        container.mount(button_row)
+        await container.mount(button_row)
         
-        await self.mount(container)
+        await button_row.mount(Button("Continue", variant="primary", id="finish"))
+        await button_row.mount(Button("Cancel", id="cancel"))
     
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses."""

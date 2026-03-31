@@ -251,3 +251,82 @@ RadioButton {
     padding: 2 4;
     background: $panel;
 }
+
+/* Password Dialog Specific */
+.dialog-container {
+    width: 70;
+    height: auto;
+    border: heavy $accent;
+    padding: 2 4;
+    background: $panel;
+    align: center middle;
+}
+
+.button-row {
+    width: 100%;
+    height: auto;
+    align: center middle;
+}
+
+.button-row Button {
+    width: auto;
+    min-width: 20;
+    margin: 0 1;
+}
+
+.label {
+    color: $text;
+    padding: 1 0;
+}
+
+.hint {
+    color: $text-muted;
+    text-style: italic;
+    padding: 1 0;
+}
+
+/* Action Buttons Row (Conversion Screen) */
+.action-buttons {
+    width: 100%;
+    height: auto;
+    align: center middle;
+}
+
+.action-buttons Button {
+    width: auto;
+    min-width: 18;
+    margin: 0 1;
+}
+
+.action-buttons Button:hover {
+    background: $primary;
+    border: solid $accent;
+    color: $text;
+    text-style: bold;
+}
+
+.action-buttons Button:focus {
+    background: $accent;
+    border: heavy $warning;
+    text-style: bold;
+}
+
+.action-buttons Button.-success:hover {
+    background: $success-lighten-1;
+    border: solid $success-lighten-2;
+}
+
+.action-buttons Button.-success:focus {
+    background: $success-darken-1;
+    border: heavy $warning;
+}
+
+.action-buttons Button.-primary:hover {
+    background: $accent;
+    border: heavy $accent-lighten-1;
+}
+
+.action-buttons Button.-primary:focus {
+    background: $accent-darken-1;
+    border: heavy $warning;
+}

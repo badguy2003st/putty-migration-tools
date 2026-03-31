@@ -76,6 +76,18 @@ Examples:
     )
     
     parser.add_argument(
+        '--password-file',
+        metavar='FILE',
+        help='File containing passwords (one per line) to try (v1.1.0)'
+    )
+    
+    parser.add_argument(
+        '--no-encryption',
+        action='store_true',
+        help='Do not re-encrypt keys (v1.1.0: default keeps original encryption)'
+    )
+    
+    parser.add_argument(
         '--dry-run',
         action='store_true',
         help='Preview without writing files'
@@ -90,6 +102,31 @@ Examples:
     return parser
 
 
+def load_password_file(password_file: Path) -> list[str]:
+    """
+    Load passwords from file (v1.1.0 format: no comments).
+    
+    One password per line, empty lines ignored.
+    All characters including # are part of the password.
+    
+    Args:
+        password_file: Path to password file
+        
+    Returns:
+        List of passwords (preserves leading/trailing spaces)
+    """
+    try:
+        content = password_file.read_text(encoding='utf-8')
+        passwords = [
+            line.rstrip('\r\n')  # Preserve leading/trailing spaces
+            for line in content.splitlines()
+            if line.strip()  # Skip only empty lines
+        ]
+        return passwords
+    except Exception as e:
+        raise ValueError(f"Failed to load password file: {e}")
+
+
 async def run_convert(args: argparse.Namespace) -> int:
     """
     Execute PPK conversion with provided arguments.
@@ -102,6 +139,37 @@ async def run_convert(args: argparse.Namespace) -> int:
     """
     ppk_dir = Path(args.input).expanduser().resolve()
     output_dir = Path(args.output).expanduser().resolve()
+    
+    # Handle password file (v1.1.0)
+    passwords_list = None
+    
+    # Auto-load passwords.txt from input directory (like TUI does)
+    auto_passwords_file = ppk_dir / "passwords.txt"
+    
+    if args.password_file:
+        # Explicit password file provided
+        password_file = Path(args.password_file).expanduser().resolve()
+        if not password_file.exists():
+            print(f"❌ Password file not found: {password_file}")
+            return 1
+        
+        try:
+            passwords_list = load_password_file(password_file)
+            print(f"✅ Loaded {len(passwords_list)} password(s) from {password_file.name}")
+            print()
+        except ValueError as e:
+            print(f"❌ {e}")
+            return 1
+    
+    elif not args.password and auto_passwords_file.exists():
+        # Auto-load from ppk_keys/passwords.txt (if no explicit password given)
+        try:
+            passwords_list = load_password_file(auto_passwords_file)
+            print(f"✅ Auto-loaded {len(passwords_list)} password(s) from {auto_passwords_file.name}")
+            print()
+        except ValueError as e:
+            print(f"⚠️  Warning: Could not load {auto_passwords_file.name}: {e}")
+            print()
     
     # Ensure ppk_keys directory exists (create if needed)
     check = ensure_ppk_directory(ppk_dir)
@@ -145,11 +213,16 @@ async def run_convert(args: argparse.Namespace) -> int:
     print("🔄 Converting PPK files...")
     print()
     
+    # v1.1.0: Re-encryption enabled by default (secure!)
+    keep_enc = not args.no_encryption
+    
     results = await batch_convert_ppk_files(
         ppk_files=ppk_files,
         output_dir=output_dir,
         password=args.password,
-        progress_callback=lambda cur, tot, name: print(f"  [{cur}/{tot}] {name}")
+        passwords=passwords_list,  # v1.1.0: Multi-password support
+        progress_callback=lambda cur, tot, name: print(f"  [{cur}/{tot}] {name}"),
+        keep_encryption=keep_enc  # v1.1.0: Re-encryption support
     )
     
     # Show results
@@ -165,7 +238,15 @@ async def run_convert(args: argparse.Namespace) -> int:
         print(f"✅ Successful: {len(successful)}/{len(results)}")
         if args.verbose:
             for r in successful:
-                print(f"   ✓ {Path(r.ppk_file).name}")
+                name = Path(r.ppk_file).name
+                # Show which password worked (v1.1.0)
+                if r.password_index is not None:
+                    if r.password_index == 0:
+                        print(f"   ✓ {name} (unencrypted)")
+                    else:
+                        print(f"   ✓ {name} (password #{r.password_index})")
+                else:
+                    print(f"   ✓ {name}")
     
     if failed:
         print(f"❌ Failed: {len(failed)}/{len(results)}")

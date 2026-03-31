@@ -67,15 +67,68 @@ file mykey.ppk
 putty-migrate convert -v
 ```
 
-### "Password required" for encrypted PPK
+### "Password required" for Encrypted PPK (v1.1.0)
 
-**Solutions:**
+**Best Solution:** Use passwords.txt
+
 ```bash
-# Use CLI with password flag
-putty-migrate convert --password "YourPassword"
+# 1. Add password to file
+echo "yourpassword" >> ppk_keys/passwords.txt
+
+# 2. Run conversion (auto-loads passwords.txt)
+putty-migrate convert
+# ✅ Auto-loaded 1 password(s) from passwords.txt
 ```
 
-**Note:** TUI password prompt is planned for v1.0.4.
+**Alternative Solutions:**
+
+```bash
+# TUI with interactive dialog
+putty-migrate
+# → Select "Convert PPK Keys"
+# → Password dialog appears if needed
+# → Choose: Try / Skip / Cancel
+
+# CLI with password flag
+putty-migrate convert --password "yourpassword"
+
+# CLI with custom password file
+putty-migrate convert --password-file ~/passwords.txt -v
+```
+
+### passwords.txt Format Issues
+
+**Problem:** "Wrong password" but password is correct
+
+**Cause:** Hidden characters, wrong encoding, or spaces
+
+**Solutions:**
+
+```bash
+# Check file encoding (must be UTF-8)
+file ppk_keys/passwords.txt
+
+# View with special characters visible
+cat -A ppk_keys/passwords.txt
+# Look for ^M (Windows line endings) or extra spaces
+
+# Recreate file with correct format
+cat > ppk_keys/passwords.txt << 'EOF'
+yourpassword
+secondpassword
+#password_starting_with_hash
+EOF
+
+# Verify content
+cat ppk_keys/passwords.txt
+```
+
+**Format Rules:**
+- One password per line
+- No comments (# is part of password!)
+- Empty lines ignored
+- Leading/trailing spaces are preserved (part of password)
+- UTF-8 encoding required
 
 ### ⚠️ "Unsupported key type" despite RSA/Ed25519 Key
 
@@ -90,9 +143,9 @@ Open your `.ppk` file in a text editor and check the first line:
 
 #### Background
 
-**PuTTY 0.75+** (released February 2021) uses PPK v3 format by default with Argon2id key derivation for better security against brute-force attacks. However, this format is not supported by the `puttykeys` library v1.0.3.
+**PuTTY 0.75+** (released February 2021) uses PPK v3 format by default with Argon2id key derivation for better security against brute-force attacks.
 
-**Impact:** ~90% of users with recent PuTTY installations have PPK v3 keys.
+**Historical Note:** PPK v3 was not supported in v1.0.3 (puttykeys library limitation). **v1.1.0+ now supports all PPK formats!**
 
 #### Solution: Convert PPK v3 → PPK v2
 
@@ -121,9 +174,11 @@ putty-migrate convert -i . -o openssh_keys
 
 While PuTTYgen can export directly to OpenSSH format (**Conversions** → **Export OpenSSH key**), this may cause formatting issues. Converting to PPK v2 first, then using this tool is more reliable.
 
-#### Future Support
+#### Support Status
 
-PPK v3 support is planned for **v1.0.4** (mid-April 2026). See `PPK_V3_IMPLEMENTATION_PLAN.md` for details.
+✅ **v1.1.0+**: Full PPK v3 support with custom parser! All key types (RSA, Ed25519, ECDSA) work in both PPK v2 and v3 formats.
+
+**Historical workaround (no longer needed):** Convert PPK v3 → v2 in PuTTYgen.
 
 ---
 

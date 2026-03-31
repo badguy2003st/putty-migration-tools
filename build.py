@@ -99,12 +99,14 @@ def build_binary(version="1.0.0", debug=False):
         '--nofollow-import-to=setuptools',              # Exclude setuptools
         '--include-package=tui',                        # Include all tui modules
         '--include-package=textual',                    # Include textual
-        '--include-package=puttykeys',                  # Include puttykeys
-        '--include-package=cryptography',               # Include cryptography
+        '--include-package=cryptography',               # Include cryptography (key operations)
         '--include-package=rich',                       # Include rich (textual dependency)
         '--include-package-data=rich',                  # Include rich data files (unicode data)
         '--include-package-data=textual',               # Include textual data files
         '--follow-import-to=rich',                      # Follow all rich imports
+        '--include-package=argon2pure',                 # PPK v3 support (v1.0.4+)
+        '--follow-import-to=argon2pure',                # Follow argon2pure imports
+        '--include-package=_argon2_cffi_bindings',      # Fast Argon2 via ctypes (v1.0.4+)
     ]
     
     # Add data files (TUI styles)

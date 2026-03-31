@@ -95,6 +95,14 @@ class InstallScreen(Screen):
         platform_info = self.query_one("#platform-info", Static)
         platform_info.update(platform_text)
     
+    def _check_python_package(self, package_name: str) -> bool:
+        """Check if a Python package is installed."""
+        try:
+            __import__(package_name)
+            return True
+        except ImportError:
+            return False
+    
     def _check_dependencies(self) -> None:
         """Check which dependencies are installed."""
         dep_list = self.query_one("#dependency-list", ListView)
@@ -102,56 +110,119 @@ class InstallScreen(Screen):
         # Clear existing items
         dep_list.clear()
         
-        # Define dependencies to check (Python packages only)
-        dependencies = {
-            "python3": "Python 3.8+",
-            "pip": "Python package manager",
+        # System tools
+        system_tools = {
+            "python3": {"desc": "Python 3.8+", "required": True},
+            "pip": {"desc": "Package manager", "required": True},
+            "bw": {"desc": "Bitwarden CLI", "required": False},
         }
         
-        # Check each dependency
-        results = {}
-        for cmd, description in dependencies.items():
+        # Python packages (v1.1.0: custom PPK parser)
+        python_packages = {
+            "textual": {"desc": "TUI framework", "required": True},
+            "rich": {"desc": "Console output", "required": True},
+            "cryptography": {"desc": "Key parsing", "required": True},
+            "argon2pure": {"desc": "PPK v3 KDF", "required": True},
+            "_argon2_cffi_bindings": {"desc": "Performance boost", "required": False},
+        }
+        
+        # Track results
+        results = {"system": {}, "packages": {}}
+        
+        # Check system tools
+        dep_list.append(ListItem(Static("System Tools:", classes="subtitle")))
+        for cmd, info in system_tools.items():
             is_installed = shutil.which(cmd) is not None
-            results[cmd] = is_installed
+            results["system"][cmd] = {"installed": is_installed, "required": info["required"]}
             
-            # Create status line
+            # Icon based on status
             if is_installed:
                 status_icon = "✅"
                 status_class = "success"
-            else:
+            elif info["required"]:
                 status_icon = "❌"
                 status_class = "error"
+            else:
+                status_icon = "⚠️ "
+                status_class = "warning"
             
-            # Add to list
-            item_text = f"{status_icon} {cmd:12} - {description}"
+            req_label = " (optional)" if not info["required"] else ""
+            item_text = f"{status_icon} {cmd:12} - {info['desc']}{req_label}"
+            dep_list.append(ListItem(Static(item_text, classes=status_class)))
+        
+        # Check Python packages
+        dep_list.append(ListItem(Static("\nPython Packages:", classes="subtitle")))
+        for pkg, info in python_packages.items():
+            is_installed = self._check_python_package(pkg)
+            results["packages"][pkg] = {"installed": is_installed, "required": info["required"]}
+            
+            # Icon based on status
+            if is_installed:
+                status_icon = "✅"
+                status_class = "success"
+            elif info["required"]:
+                status_icon = "❌"
+                status_class = "error"
+            else:
+                status_icon = "⚠️ "
+                status_class = "warning"
+            
+            req_label = " (optional)" if not info["required"] else ""
+            item_text = f"{status_icon} {pkg:21} - {info['desc']}{req_label}"
             dep_list.append(ListItem(Static(item_text, classes=status_class)))
         
         # Update instructions based on missing dependencies
-        self._update_instructions(results)
+        self._update_instructions(results, python_packages)
     
-    def _update_instructions(self, results: Dict[str, bool]) -> None:
+    def _update_instructions(self, results: Dict, python_packages: Dict) -> None:
         """Update installation instructions based on missing dependencies."""
         instructions = self.query_one("#install-instructions", Static)
         
-        missing = [cmd for cmd, installed in results.items() if not installed]
+        # Check for missing REQUIRED dependencies
+        missing_system = [
+            cmd for cmd, data in results["system"].items() 
+            if not data["installed"] and data["required"]
+        ]
+        missing_packages = [
+            pkg for pkg, data in results["packages"].items()
+            if not data["installed"] and data["required"]
+        ]
         
-        if not missing:
-            instructions.update(
-                "✅ All core dependencies installed!\n\n"
-                "📦 Install Python packages:\n"
-                "   pip install -r tui/requirements.txt\n\n"
-                "This will install: textual, rich, puttykeys"
-            )
+        # All required deps installed
+        if not missing_system and not missing_packages:
+            # Check optional deps
+            optional_missing = []
+            if not results["system"].get("bw", {}).get("installed"):
+                optional_missing.append("bw (Bitwarden CLI)")
+            if not results["packages"].get("_argon2_cffi_bindings", {}).get("installed"):
+                optional_missing.append("argon2-cffi-bindings")
+            
+            msg = "✅ All required dependencies installed!\n\n"
+            
+            if optional_missing:
+                msg += f"⚠️  Optional (recommended):\n"
+                for opt in optional_missing:
+                    msg += f"   • {opt}\n"
+                msg += "\n"
+            
+            msg += "📦 To install/update packages:\n"
+            msg += "   pip install -r tui/requirements.txt\n\n"
+            msg += "v1.1.0: textual, rich, cryptography, argon2"
+            
+            instructions.update(msg)
             instructions.set_classes("success status")
             return
         
         # Show what's missing
         install_text = "❌ Missing required dependencies:\n\n"
         
-        if "python3" in missing:
+        if "python3" in missing_system:
             install_text += "• python3: Download from https://www.python.org/downloads/\n"
-        if "pip" in missing:
+        if "pip" in missing_system:
             install_text += "• pip: Included with Python 3.4+, check your installation\n"
+        
+        if missing_packages:
+            install_text += f"\n• Python packages ({len(missing_packages)}): Run pip install -r tui/requirements.txt\n"
         
         install_text += "\nClick 'Show Install Guide' for detailed instructions."
         
@@ -174,22 +245,29 @@ class InstallScreen(Screen):
         """Show detailed installation guide."""
         guide_text = (
             "📖 Installation Guide\n\n"
-            "PuTTY Migration Tools requires Python 3.8 or higher.\n\n"
+            "PuTTY Migration Tools v1.1.0\n"
+            "Requires Python 3.8 or higher\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
             "1. Install Python:\n"
             "   • Windows: https://www.python.org/downloads/\n"
             "   • Linux: Usually pre-installed\n\n"
             "2. Install Python packages:\n"
             "   pip install -r tui/requirements.txt\n\n"
-            "   This installs:\n"
+            "   Required packages:\n"
             "   • textual (TUI framework)\n"
             "   • rich (console output)\n"
-            "   • puttykeys (PPK conversion)\n\n"
-            "3. Run the tool:\n"
+            "   • cryptography (key parsing)\n"
+            "   • argon2pure (PPK v3 KDF)\n\n"
+            "   Optional (recommended):\n"
+            "   • argon2-cffi-bindings (speed boost)\n\n"
+            "3. Optional - Bitwarden Export:\n"
+            "   Download Bitwarden CLI from:\n"
+            "   https://bitwarden.com/help/cli/\n\n"
+            "4. Run the tool:\n"
             "   python -m tui\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "✅ No external tools needed!\n"
-            "All functionality is pure Python."
+            "✅ v1.1.0: Custom PPK parser (no puttykeys!)\n"
+            "   Supports PPK v2 + v3, all key types"
         )
         
         self.app.notify(

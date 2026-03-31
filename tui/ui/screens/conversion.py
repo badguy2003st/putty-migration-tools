@@ -2,6 +2,8 @@
 Conversion Screen - PPK to OpenSSH/Bitwarden conversion UI.
 
 Provides an interactive interface for converting .ppk keys to various formats.
+
+v1.1.0: Adds interactive password support for encrypted PPK files.
 """
 
 import glob
@@ -22,8 +24,14 @@ from textual.widgets import (
     RadioButton,
     ListView,
     ListItem,
+    RichLog,
 )
 from textual.containers import Container, Vertical, Horizontal
+
+
+class CancelledByUser(Exception):
+    """Raised when user cancels to edit passwords.txt."""
+    pass
 
 
 class ConversionScreen(Screen):
@@ -60,17 +68,25 @@ class ConversionScreen(Screen):
                 yield RadioButton("🔐 Bitwarden Import (vault items)")
                 yield RadioButton("⚙️  SSH Config (~/.ssh/config entries)")
             
+            # Encryption options (only visible for OpenSSH/SSH Config)
+            yield Static("🔒 Encryption (for encrypted PPKs):", classes="subtitle", id="encryption-label")
+            with RadioSet(id="encryption-mode"):
+                yield RadioButton("🔒 Keep password encryption (recommended)", value=True)
+                yield RadioButton("🔓 Remove password (unencrypted keys)")
+            
             # Progress section
             yield Static("Progress:", classes="subtitle")
             yield ProgressBar(id="progress", total=100, show_eta=False)
             yield Static("Ready to convert...", id="status-text", classes="status")
             
-            # Log output (scrollable)
-            yield Static("", id="log-output", classes="status")
+            # Log output (scrollable with RichLog)
+            yield Static("Conversion Log:", classes="subtitle")
+            yield RichLog(id="log-output", highlight=True, markup=False, max_lines=500)
             
             # Action buttons
-            with Horizontal():
+            with Horizontal(classes="action-buttons"):
                 yield Button("▶ Start Conversion", id="start", variant="success")
+                yield Button("💾 Export Log", id="export-log", variant="primary", disabled=True)
                 yield Button("« Back to Menu", id="back")
         
         yield Footer()
@@ -80,11 +96,42 @@ class ConversionScreen(Screen):
         # Scan for PPK files and populate the list
         self._populate_file_list()
         
+        # Set initial visibility of encryption options (visible by default for OpenSSH)
+        self._update_encryption_visibility(0)  # OpenSSH is index 0
+        
         # Focus the start button
         try:
             start_button = self.query_one("#start", Button)
             start_button.focus()
         except Exception:
+            pass
+    
+    def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
+        """Handle format selection changes to show/hide encryption options."""
+        if event.radio_set.id == "format-selection":
+            selected_index = event.radio_set.pressed_index
+            self._update_encryption_visibility(selected_index)
+    
+    def _update_encryption_visibility(self, format_index: int) -> None:
+        """Update visibility of encryption options based on selected format.
+        
+        Args:
+            format_index: Selected format (0=OpenSSH, 1=Bitwarden, 2=SSH Config)
+        """
+        try:
+            encryption_label = self.query_one("#encryption-label", Static)
+            encryption_radioset = self.query_one("#encryption-mode", RadioSet)
+            
+            # Show encryption options for OpenSSH (0) and SSH Config (2)
+            # Hide for Bitwarden (1) - Bitwarden requires unencrypted keys
+            if format_index in [0, 2]:  # OpenSSH or SSH Config
+                encryption_label.display = True
+                encryption_radioset.display = True
+            else:  # Bitwarden
+                encryption_label.display = False
+                encryption_radioset.display = False
+        except Exception:
+            # Widget not found yet (initial setup)
             pass
     
     def _populate_file_list(self) -> None:
@@ -143,19 +190,126 @@ class ConversionScreen(Screen):
         
         if button_id == "start":
             await self._start_conversion()
+        elif button_id == "export-log":
+            await self._export_log()
         elif button_id == "back":
             self.app.pop_screen()
     
-    async def _start_conversion(self) -> None:
-        """Start the conversion process with real backend integration."""
-        from ...core.converter import (
-            batch_convert_ppk_files,
-            get_conversion_summary,
-            check_puttykeys_available,
-            copy_key_to_ssh
+    async def _convert_with_password_retry(
+        self,
+        ppk_file: Path,
+        output_dir: Path,
+        passwords: List[str],
+        current: int,
+        total: int,
+        keep_encryption: bool = True
+    ):
+        """
+        Convert PPK file with interactive password retry dialog.
+        
+        v1.1.0: Implements interactive password retry with 3 options.
+        BUG FIX: Pre-validates PPK encryption status to avoid false dialog triggers.
+        
+        Args:
+            ppk_file: PPK file to convert
+            output_dir: Output directory
+            passwords: Passwords from passwords.txt
+            current: Current file number (1-indexed)
+            total: Total files being processed
+            keep_encryption: Whether to keep password encryption (from UI RadioSet)
+            
+        Returns:
+            ConversionResult
+            
+        Raises:
+            CancelledByUser: If user cancels to edit passwords.txt
+        """
+        from ...core.converter import convert_ppk_to_openssh, ConversionResult, normalize_key_name
+        from ...core.ppk_parser import detect_ppk_info
+        from .password_dialog import PasswordDialog
+        
+        # v1.1.0 BUG FIX: Pre-validate PPK format and encryption status
+        try:
+            ppk_content = ppk_file.read_text(encoding='utf-8')
+            ppk_info = detect_ppk_info(ppk_content)
+        except Exception as e:
+            # Invalid PPK format - return error immediately
+            return ConversionResult(
+                success=False,
+                error=f"Invalid PPK format: {str(e)}",
+                ppk_file=str(ppk_file)
+            )
+        
+        # Try conversion with passwords from file
+        # v1.1.0: keep_encryption based on user's UI choice
+        normalized_name = normalize_key_name(ppk_file.stem)
+        result = await convert_ppk_to_openssh(
+            ppk_file,
+            output_dir / normalized_name,
+            passwords=passwords,
+            keep_encryption=keep_encryption  # From UI RadioSet
         )
-        from ...utils.security import show_security_reminder
-        from ...utils.platform import is_linux
+        
+        if result.success:
+            return result
+        
+        # v1.1.0 BUG FIX: Only show dialog if key is ACTUALLY encrypted
+        # This prevents false positive triggers on unencrypted keys with other errors
+        if not ppk_info.is_encrypted:
+            # Unencrypted key with error → return error directly (no dialog)
+            return result
+        
+        # Key is encrypted and passwords didn't work → show password dialog
+        while True:
+            dialog_result = await self.app.push_screen_wait(
+                PasswordDialog(
+                    ppk_file.name,
+                    len(passwords),
+                    current,
+                    total
+                )
+            )
+            
+            if dialog_result.action == "skip":
+                result.error = "Skipped by user (password required)"
+                return result
+            
+            elif dialog_result.action == "cancel":
+                raise CancelledByUser("User cancelled to edit passwords.txt")
+            
+            elif dialog_result.action == "try":
+                # Retry with entered password
+                # v1.1.0: Create DecryptionResult with password_used for re-encryption
+                from ...core.ppk_parser import decrypt_ppk
+                
+                # Read PPK content for manual decryption
+                ppk_content = ppk_file.read_text(encoding='utf-8')
+                decrypt_result = decrypt_ppk(ppk_content, password=dialog_result.password)
+                
+                if decrypt_result.success:
+                    # Manually convert with password stored
+                    # v1.1.0: keep_encryption=True will re-encrypt with entered password
+                    normalized_name = normalize_key_name(ppk_file.stem)
+                    retry_result = await convert_ppk_to_openssh(
+                        ppk_file,
+                        output_dir / normalized_name,
+                        password=dialog_result.password,
+                        keep_encryption=True  # Re-encrypt with manual password!
+                    )
+                    return retry_result
+                
+                # Still failed - notify and loop (dialog shows again)
+                self.app.notify(
+                    f"Wrong password for {ppk_file.name}\n"
+                    f"Try again, skip, or cancel",
+                    severity="error",
+                    timeout=3
+                )
+                continue
+    
+    async def _start_conversion(self) -> None:
+        """Start the conversion process - launches worker for async operations."""
+        from ...core.converter import check_puttykeys_available
         
         # Check if puttykeys is available
         if not await check_puttykeys_available():
@@ -180,6 +334,51 @@ class ConversionScreen(Screen):
             await self._bitwarden_export()
             return
         
+        # Launch worker for conversion (required for push_screen_wait to work)
+        self.run_worker(self._conversion_worker(selected_format), exclusive=True)
+    
+    async def _conversion_worker(self, selected_format: str) -> None:
+        """Worker method for conversion - allows push_screen_wait() to work properly."""
+        from ...core.converter import (
+            get_conversion_summary,
+            copy_key_to_ssh
+        )
+        from ...core.file_operations import ensure_ppk_directory, load_password_file
+        from ...utils.platform import is_linux
+        
+        # Get encryption choice from UI RadioSet
+        encryption_radioset = self.query_one("#encryption-mode", RadioSet)
+        keep_encryption = (encryption_radioset.pressed_index == 0)  # True if "Keep password" is selected
+        
+        # v1.1.0: Ensure ppk directory exists (creates passwords.txt too)
+        ppk_dir = Path("./ppk_keys")
+        check = ensure_ppk_directory(ppk_dir)
+        
+        # Update UI elements
+        progress_bar = self.query_one("#progress", ProgressBar)
+        status_text = self.query_one("#status-text", Static)
+        log_output = self.query_one("#log-output", RichLog)
+        start_button = self.query_one("#start", Button)
+        export_button = self.query_one("#export-log", Button)
+        
+        if check['created']:
+            # Show first-time setup notification
+            self.app.notify(
+                check['tui_message'],
+                title=check['tui_title'],
+                severity="information",
+                timeout=15
+            )
+            return  # Stop here, let user add files
+        
+        # v1.1.0: Load passwords from file
+        passwords_from_file = load_password_file(check['passwords_file'])
+        
+        if passwords_from_file:
+            status_text.update(
+                f"Loaded {len(passwords_from_file)} password(s) from passwords.txt"
+            )
+        
         # Get PPK files
         ppk_files = self._scan_ppk_files()
         
@@ -191,39 +390,31 @@ class ConversionScreen(Screen):
             )
             return
         
-        # NEW: Linux ~/.ssh import dialog (only for OpenSSH Files format)
-        ssh_import_choice = None
-        if selected_format == "OpenSSH Files" and is_linux():
-            from .ssh_import_dialog import SSHImportDialog
-            
-            ssh_import_choice = await self.app.push_screen_wait(
-                SSHImportDialog([Path(f) for f in ppk_files])
-            )
-            
-            if ssh_import_choice.cancelled:
-                return  # User cancelled the dialog
-        
-        # Update UI
-        progress_bar = self.query_one("#progress", ProgressBar)
-        status_text = self.query_one("#status-text", Static)
-        log_output = self.query_one("#log-output", Static)
-        start_button = self.query_one("#start", Button)
-        
         # Disable start button during conversion
         start_button.disabled = True
         
         # Show initial status
         status_text.update(f"Converting {len(ppk_files)} file(s) to {selected_format}...")
-        log_output.update("")
+        log_output.clear()
         
         try:
-            # Determine output directory based on format
-            if selected_format == "OpenSSH Files":
-                output_dir = Path("./openssh_keys")
-            elif selected_format == "SSH Config":
-                output_dir = Path.home() / ".ssh"
-            else:
-                output_dir = Path("./openssh_keys")
+            # ALWAYS convert to ./openssh_keys staging directory FIRST
+            # Then copy to ~/.ssh if user requests it (via ssh_import_choice)
+            # This ensures conflict handling (rename/skip/overwrite) works correctly
+            output_dir = Path("./openssh_keys")
+            
+            # ~/.ssh import dialog - show when user selects "SSH Config" format
+            ssh_import_choice = None
+            
+            if selected_format == "SSH Config":
+                from .ssh_import_dialog import SSHImportDialog
+                
+                ssh_import_choice = await self.app.push_screen_wait(
+                    SSHImportDialog([Path(f) for f in ppk_files])
+                )
+                
+                if ssh_import_choice.cancelled:
+                    return  # User cancelled the dialog
             
             # Create output directory
             output_dir.mkdir(exist_ok=True)
@@ -231,20 +422,47 @@ class ConversionScreen(Screen):
             total = len(ppk_files)
             log_lines = []
             
-            # Progress callback for batch conversion
+            # Progress callback for conversion
             def progress_callback(current: int, total_files: int, filename: str):
                 progress_bar.update(progress=(current / total_files) * 100)
                 status_text.update(f"Processing {current}/{total_files}: {filename}...")
             
-            # Convert all files
-            results = await batch_convert_ppk_files(
-                [Path(f) for f in ppk_files],
-                output_dir,
-                progress_callback=progress_callback
-            )
+            # v1.1.0: Convert with password retry support
+            # NOTE: Public keys are now extracted INSIDE convert_ppk_to_openssh()
+            # before re-encryption, fixing the encrypted Ed25519 bug!
+            results = []
             
-            # NEW: Copy to ~/.ssh if requested (Linux only)
+            for i, ppk_file in enumerate(ppk_files, 1):
+                try:
+                    result = await self._convert_with_password_retry(
+                        Path(ppk_file),
+                        output_dir,
+                        passwords_from_file,
+                        i,
+                        len(ppk_files),
+                        keep_encryption=keep_encryption  # Pass user's encryption choice!
+                    )
+                    results.append(result)
+                    
+                    # Update progress
+                    progress_callback(i, len(ppk_files), Path(ppk_file).name)
+                    
+                except CancelledByUser:
+                    # User cancelled to edit passwords.txt
+                    status_text.update("Cancelled by user")
+                    self.app.notify(
+                        f"Conversion cancelled.\n\n"
+                        f"Edit {check['passwords_file']} to add passwords,\n"
+                        f"then try again.",
+                        title="Cancelled",
+                        severity="information",
+                        timeout=10
+                    )
+                    break  # Stop processing remaining files
+            
+            # Copy to ~/.ssh if requested
             copy_results = []
+            
             if ssh_import_choice and ssh_import_choice.import_to_ssh:
                 status_text.update("Copying keys to ~/.ssh...")
                 
@@ -259,7 +477,9 @@ class ConversionScreen(Screen):
                         copy_results.append(private_copy)
                         
                         # Copy public key if exists
-                        pub_file = Path(result.output_file).with_suffix('.pub')
+                        # BUG FIX: Use string concat instead of with_suffix() to handle dots in filename
+                        pub_file = Path(str(result.output_file) + '.pub')
+                        
                         if pub_file.exists():
                             public_copy = await copy_key_to_ssh(
                                 pub_file,
@@ -267,7 +487,7 @@ class ConversionScreen(Screen):
                             )
                             copy_results.append(public_copy)
             
-            # Build log output
+            # Build log output with improved error handling (v1.1.0)
             if copy_results:
                 # Show ~/.ssh copy results
                 log_lines.append("Keys created in ~/.ssh:")
@@ -277,12 +497,20 @@ class ConversionScreen(Screen):
                 key_groups = {}
                 for copy_result in copy_results:
                     dest_path = Path(copy_result['destination'])
-                    key_name = dest_path.stem if dest_path.suffix != '.pub' else dest_path.stem
+                    
+                    # BUG FIX: Handle .pub extension correctly for grouping
+                    # "bggaming.de dagobert23.de.pub" → name="bggaming.de dagobert23.de.pub", stem="bggaming.de dagobert23.de"
+                    if dest_path.name.endswith('.pub'):
+                        # This is a public key - base name is everything except .pub
+                        key_name = dest_path.name[:-4]  # Remove ".pub" suffix
+                    else:
+                        # This is a private key - use full name
+                        key_name = dest_path.name
                     
                     if key_name not in key_groups:
                         key_groups[key_name] = {'private': None, 'public': None}
                     
-                    if dest_path.suffix == '.pub':
+                    if dest_path.name.endswith('.pub'):
                         key_groups[key_name]['public'] = copy_result
                     else:
                         key_groups[key_name]['private'] = copy_result
@@ -325,16 +553,67 @@ class ConversionScreen(Screen):
                     first_key = Path(copy_results[0]['destination'])
                     log_lines.append(f"   ssh -i ~/.ssh/{first_key.name} user@host")
             else:
-                # Original log output for non-Linux or openssh_keys directory
+                # Original log output with IMPROVED error handling (v1.1.0)
                 for result in results:
                     file_name = os.path.basename(result.ppk_file)
                     if result.success:
                         log_lines.append(f"✅ {file_name} → {output_dir}")
                     else:
-                        error_short = result.error[:50] if result.error else "Unknown error"
-                        log_lines.append(f"❌ {file_name}: {error_short}")
+                        # v1.1.0: Smart error formatting based on error type
+                        error = result.error if result.error else "Unknown error"
+                        error_lower = error.lower()
+                        
+                        # Detect error types and format accordingly (order matters!)
+                        # Check structural errors FIRST (Ed448, DSA, public keys, etc.)
+                        
+                        if "ed448" in error_lower and "not yet supported" in error_lower:
+                            log_lines.append(f"⚠️  {file_name}: Ed448 not supported (library limitation)")
+                            log_lines.append(f"   → Use Ed25519 instead (same 128-bit security)")
+                        
+                        elif "dsa" in error_lower and ("deprecated" in error_lower or "not supported" in error_lower):
+                            log_lines.append(f"❌ {file_name}: DSA deprecated (insecure)")
+                            log_lines.append(f"   → Generate new RSA or Ed25519 key")
+                        
+                        elif ("ssh2 public key" in error_lower or "public keys don't need" in error_lower):
+                            log_lines.append(f"⏭  {file_name}: Public key (skip)")
+                            log_lines.append(f"   → Remove .pub files from ppk_keys/")
+                        
+                        elif "already in openssh format" in error_lower:
+                            log_lines.append(f"⏭  {file_name}: Already converted")
+                        
+                        elif "none of the" in error_lower and "passwords" in error_lower:
+                            log_lines.append(f"🔒 {file_name}: Wrong password")
+                            log_lines.append(f"   → Check/update passwords.txt")
+                        
+                        elif "password required" in error_lower or "encrypted" in error_lower and "password" in error_lower:
+                            log_lines.append(f"🔒 {file_name}: Password required")
+                            log_lines.append(f"   → Add password to passwords.txt")
+                        
+                        else:
+                            # Generic error - show full message (multi-line if long)
+                            if len(error) > 60:
+                                log_lines.append(f"❌ {file_name}:")
+                                # Split long errors into multiple lines
+                                words = error.split()
+                                line = "   "
+                                for word in words:
+                                    if len(line) + len(word) + 1 > 70:
+                                        log_lines.append(line)
+                                        line = "   " + word
+                                    else:
+                                        line += (" " if line != "   " else "") + word
+                                if line.strip():
+                                    log_lines.append(line)
+                            else:
+                                log_lines.append(f"❌ {file_name}: {error}")
             
-            log_output.update("\n".join(log_lines))
+            # Write to RichLog (one line at a time for proper scrolling)
+            log_output.clear()
+            for line in log_lines:
+                log_output.write(line)
+            
+            # Enable export button now that we have log content
+            export_button.disabled = False
             
             # Get summary
             summary = get_conversion_summary(results)
@@ -411,7 +690,8 @@ class ConversionScreen(Screen):
         except Exception as e:
             status_text.update(f"❌ Error: {str(e)}")
             status_text.set_classes("error")
-            log_output.update(f"❌ Unexpected error: {str(e)}")
+            log_output.clear()
+            log_output.write(f"❌ Unexpected error: {str(e)}")
             self.app.notify(
                 f"Conversion failed with error:\n{str(e)}",
                 title="Error",
@@ -420,6 +700,65 @@ class ConversionScreen(Screen):
         finally:
             # Re-enable start button
             start_button.disabled = False
+    
+    async def _export_log(self) -> None:
+        """Export conversion log to a text file."""
+        from datetime import datetime
+        
+        try:
+            # Get log content from RichLog widget
+            log_output = self.query_one("#log-output", RichLog)
+            
+            # RichLog stores lines internally - extract them
+            log_lines = []
+            for line in log_output.lines:
+                # Convert Rich Text to plain string
+                log_lines.append(line.text if hasattr(line, 'text') else str(line))
+            
+            if not log_lines:
+                self.app.notify(
+                    "No log content to export.\n"
+                    "Run a conversion first.",
+                    title="Empty Log",
+                    severity="warning",
+                    timeout=5
+                )
+                return
+            
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_file = Path(f"conversion_log_{timestamp}.txt")
+            
+            # Add header to export
+            export_content = [
+                "=" * 70,
+                "PPK Migration Tools - Conversion Log",
+                f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "=" * 70,
+                "",
+                *log_lines
+            ]
+            
+            # Write to file
+            log_file.write_text("\n".join(export_content), encoding='utf-8')
+            
+            # Show success notification
+            self.app.notify(
+                f"Log exported successfully!\n\n"
+                f"File: {log_file.absolute()}\n"
+                f"Lines: {len(log_lines)}",
+                title="Export Complete",
+                severity="information",
+                timeout=8
+            )
+            
+        except Exception as e:
+            self.app.notify(
+                f"Failed to export log:\n{str(e)}",
+                title="Export Error",
+                severity="error",
+                timeout=5
+            )
     
     async def _bitwarden_export(self) -> None:
         """Execute Bitwarden SSH Key export."""
@@ -430,7 +769,7 @@ class ConversionScreen(Screen):
         # Update UI
         progress_bar = self.query_one("#progress", ProgressBar)
         status_text = self.query_one("#status-text", Static)
-        log_output = self.query_one("#log-output", Static)
+        log_output = self.query_one("#log-output", RichLog)
         start_button = self.query_one("#start", Button)
         
         start_button.disabled = True
@@ -458,23 +797,27 @@ class ConversionScreen(Screen):
                     timeout=10
                 )
                 status_text.update("No sessions with SSH key authentication found")
-                log_output.update("⚠️  No sessions configured with SSH key authentication")
+                log_output.clear()
+                log_output.write("⚠️  No sessions configured with SSH key authentication")
                 return
             
             status_text.update(f"Found {len(sessions_with_keys)} session(s) with SSH keys...")
             progress_bar.update(progress=20)
             
-            # 3. Auto-convert ALL PPK files to OpenSSH format
+            # 3. Auto-convert ALL PPK files to OpenSSH format (v1.1.0: with password support!)
             ppk_keys_dir = Path("./ppk_keys")
             openssh_keys_dir = Path("./openssh_keys")
             openssh_keys_dir.mkdir(exist_ok=True)
+            
+            # v1.1.0: Load passwords from passwords.txt
+            from ...core.file_operations import load_password_file, ensure_ppk_directory
+            check = ensure_ppk_directory(ppk_keys_dir)
+            passwords_from_file = load_password_file(check['passwords_file'])
             
             if ppk_keys_dir.exists():
                 ppk_files = list(ppk_keys_dir.glob("*.ppk"))
                 
                 if ppk_files:
-                    from ...core.converter import batch_convert_ppk_files
-                    
                     status_text.update(f"Converting {len(ppk_files)} PPK file(s) to OpenSSH format...")
                     progress_bar.update(progress=30)
                     
@@ -484,12 +827,31 @@ class ConversionScreen(Screen):
                         progress_bar.update(progress=percent)
                         status_text.update(f"Converting {current}/{total}: {filename}...")
                     
-                    # Convert all PPK files
-                    results = await batch_convert_ppk_files(
-                        ppk_files,
-                        openssh_keys_dir,
-                        progress_callback=conversion_progress
-                    )
+                    # v1.1.0: Convert with password retry support (like OpenSSH conversion)
+                    # NOTE: Bitwarden requires UNENCRYPTED keys (keep_encryption=False)!
+                    results = []
+                    for i, ppk_file in enumerate(ppk_files, 1):
+                        try:
+                            result = await self._convert_with_password_retry(
+                                ppk_file,
+                                openssh_keys_dir,
+                                passwords_from_file,
+                                i,
+                                len(ppk_files),
+                                keep_encryption=False  # Bitwarden requires unencrypted keys!
+                            )
+                            results.append(result)
+                            conversion_progress(i, len(ppk_files), ppk_file.name)
+                        except CancelledByUser:
+                            # User cancelled - stop conversion
+                            self.app.notify(
+                                "Conversion cancelled by user.\n\n"
+                                f"Edit {check['passwords_file']} to add passwords.",
+                                title="Cancelled",
+                                severity="information",
+                                timeout=8
+                            )
+                            return  # Exit bitwarden export
                     
                     # Build conversion log
                     conversion_log_lines = []
@@ -504,7 +866,9 @@ class ConversionScreen(Screen):
                             if not result.success:
                                 conversion_log_lines.append(f"  - {Path(result.ppk_file).name}: {result.error}")
                     
-                    log_output.update("\n".join(conversion_log_lines))
+                    log_output.clear()
+                    for line in conversion_log_lines:
+                        log_output.write(line)
                     
                     progress_bar.update(progress=50)
                     status_text.update(f"PPK conversion complete ({successful}/{len(results)}), generating export...")
@@ -548,30 +912,77 @@ class ConversionScreen(Screen):
             import json
             export_data = json.loads(json_export)
             exported_count = len(export_data.get("items", []))
+            exported_items = export_data.get("items", [])
             
             # Update status
             status_text.update(f"✅ Exported {exported_count} SSH key(s) to Bitwarden format!")
             status_text.set_classes("success")
             
-            # Build log output (append to existing conversion log)
-            existing_log = log_output.renderable if hasattr(log_output, 'renderable') else ""
+            # Build detailed log output
             log_lines = []
             
-            # Keep conversion log if it exists
-            if existing_log:
-                log_lines.append(str(existing_log))
-                log_lines.append("")
-                log_lines.append("─" * 60)
-                log_lines.append("")
+            # Show PPK conversion summary if it happened
+            if ppk_files:
+                from ...core.converter import get_conversion_summary
+                from ...core.converter import batch_convert_ppk_files
+                # Get conversion results from earlier (stored in results variable)
+                if 'results' in locals():
+                    summary = get_conversion_summary(results)
+                    log_lines.append(f"PPK Conversion: {summary['successful']}/{summary['total']} successful")
+                    log_lines.append("─" * 60)
+                    
+                    for result in results:
+                        file_name = Path(result.ppk_file).name
+                        if result.success:
+                            log_lines.append(f"✅ {file_name}")
+                        else:
+                            error = result.error[:50] if result.error else "Unknown error"
+                            log_lines.append(f"❌ {file_name}: {error}")
+                    
+                    log_lines.append("")
+                    log_lines.append("─" * 60)
+                    log_lines.append("")
             
-            log_lines.append(f"✅ Generated Bitwarden export: {output_path.name}")
-            log_lines.append(f"   {exported_count} SSH key(s) exported")
+            # Bitwarden export details
+            log_lines.append(f"Bitwarden Export: {exported_count} session(s)")
+            log_lines.append("─" * 60)
+            
+            # List each exported item with details
+            for item in exported_items:
+                name = item.get("name", "Unknown")
+                notes = item.get("notes", "")
+                
+                # Extract key type from notes (format: "SSH Key: RSA 2048")
+                key_type = "Unknown"
+                if "SSH Key:" in notes:
+                    key_info = notes.split("SSH Key:")[1].split("\n")[0].strip()
+                    key_type = key_info
+                
+                # Extract username from login
+                username = ""
+                if item.get("login"):
+                    username = item["login"].get("username", "")
+                
+                user_info = f" ({username})" if username else ""
+                log_lines.append(f"✅ {name}{user_info} - {key_type}")
+            
+            log_lines.append("")
+            log_lines.append("─" * 60)
+            log_lines.append(f"✅ Export file: {output_path.name}")
             log_lines.append("")
             log_lines.append("Import to Bitwarden:")
             log_lines.append("  1. bw login")
             log_lines.append("  2. bw unlock")
             log_lines.append(f"  3. bw import bitwardenjson {output_path.name}")
-            log_output.update("\n".join(log_lines))
+            
+            # Write to log
+            log_output.clear()
+            for line in log_lines:
+                log_output.write(line)
+            
+            # Enable export button so log can be exported
+            export_button = self.query_one("#export-log", Button)
+            export_button.disabled = False
             
             # Show success notification
             self.app.notify(
@@ -590,7 +1001,8 @@ class ConversionScreen(Screen):
             
         except FileNotFoundError as e:
             status_text.update(f"❌ Error: {str(e)}")
-            log_output.update(f"❌ {str(e)}")
+            log_output.clear()
+            log_output.write(f"❌ {str(e)}")
             self.app.notify(
                 str(e),
                 title="Export Failed",
@@ -599,7 +1011,8 @@ class ConversionScreen(Screen):
             )
         except Exception as e:
             status_text.update(f"❌ Error: {str(e)}")
-            log_output.update(f"❌ Unexpected error: {str(e)}")
+            log_output.clear()
+            log_output.write(f"❌ Unexpected error: {str(e)}")
             self.app.notify(
                 f"Bitwarden export failed:\n\n{str(e)}",
                 title="Export Error",

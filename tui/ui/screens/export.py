@@ -67,7 +67,7 @@ class ExportScreen(Screen):
             yield Static("Ready to export...", id="status-text", classes="status")
             
             # Action buttons
-            with Horizontal():
+            with Horizontal(classes="action-buttons"):
                 yield Button("▶ Export Sessions", id="export", variant="success")
                 yield Button("🔄 Refresh", id="refresh")
                 yield Button("« Back to Menu", id="back")

@@ -7,8 +7,12 @@ textual>=0.41.0
 # Rich text/console (fallback + Textual dependency)
 rich>=13.0.0
 
-# PPK to OpenSSH conversion (pure Python, cross-platform)
-puttykeys>=1.0.3
+# PPK to OpenSSH conversion - CUSTOM IMPLEMENTATION (v1.1.0+)
+# No external library needed - using ppk_v2_crypto.py + ppk_v3_crypto.py
+
+# PPK v3 Support - Argon2id key derivation (v1.1.0+)
+argon2pure>=1.3  # Universal fallback (always works)
+argon2-cffi-bindings>=21.0.0  # Fast native Argon2 (590x speedup, recommended)
 
 # Optional: Better performance for hashing
 # (hashlib is built-in, but these can improve performance)

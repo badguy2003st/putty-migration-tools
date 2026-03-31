@@ -218,7 +218,9 @@ Register-ScheduledTask -TaskName "PuTTY Backup" -Action $action -Trigger $trigge
 FROM python:3.10-slim
 
 # Install dependencies
-RUN pip install textual>=0.41.0 rich>=13.0.0 puttykeys>=1.0.3
+RUN pip install textual>=0.41.0 rich>=13.0.0 cryptography>=41.0.0 argon2pure>=1.3
+
+# v1.1.0: Custom PPK parser (no puttykeys dependency)
 
 # Copy source
 COPY putty-migration-tools /app

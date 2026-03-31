@@ -135,9 +135,13 @@ CLI Parser / TUI Screen
     ↓
 core/converter.py
     ├→ core/file_operations.py (read PPK)
-    ├→ puttykeys library (parse PPK)
+    ├→ core/ppk_parser.py (detect v2/v3)
+    │   ├→ core/ppk_v2_crypto.py (v2 decryption)
+    │   └→ core/ppk_v3_crypto.py (v3 decryption)
     ├→ cryptography library (generate OpenSSH)
     └→ utils/security.py (set permissions)
+    
+v1.1.0: Custom PPK parser replaces puttykeys library
     ↓
 Output: OpenSSH keys
 ```

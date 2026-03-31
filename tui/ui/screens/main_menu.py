@@ -49,7 +49,6 @@ class MainMenuScreen(Screen):
             with Vertical():
                 yield Button("🔑 Convert PPK Keys", id="convert", variant="primary")
                 yield Button("📤 Export Sessions", id="export", variant="primary")
-                yield Button("📋 Export to SSH Config", id="ssh-config", variant="primary")
                 yield Button("⚙️  Settings", id="settings")
                 yield Button("ℹ️  About", id="about")
                 yield Button("❌ Exit", id="exit", variant="error")
@@ -100,10 +99,6 @@ class MainMenuScreen(Screen):
             self.app.push_screen(ConversionScreen())
         elif button_id == "export":
             # Navigate to Export Screen
-            from .export import ExportScreen
-            self.app.push_screen(ExportScreen())
-        elif button_id == "ssh-config":
-            # SSH Config uses the Export screen (same functionality)
             from .export import ExportScreen
             self.app.push_screen(ExportScreen())
         elif button_id == "settings":

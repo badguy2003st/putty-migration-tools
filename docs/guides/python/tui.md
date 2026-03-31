@@ -19,13 +19,36 @@ python -m tui
 
 The Python version provides the **same TUI features** as the binary version:
 
-- 🔑 Convert PPK Keys
+- 🔑 Convert PPK Keys (with password dialog - v1.1.0)
 - 📤 Export Sessions
 - 📋 Export to SSH Config
+- 💾 Export Log (v1.1.0)
 - ⚙️ Settings
 - ℹ️ About
 
-For **detailed TUI usage**, see:
+### Encrypted PPK Support (v1.1.0)
+
+**Auto-create & load passwords:**
+- TUI automatically creates `ppk_keys/passwords.txt` on first run
+- Loads passwords automatically on each conversion
+- Shows interactive password dialog if passwords don't work
+
+**Password Dialog:**
+- **Try Password** - Enter manually and retry
+- **Skip File** - Continue with next file
+- **Cancel & Edit** - Stop to edit passwords.txt
+
+**Automatic Re-encryption (v1.1.0):** 🔐
+- Encrypted PPKs → Encrypted OpenSSH (automatic, transparent)
+- Password preserved from passwords.txt or manual dialog
+- No user action required - security by default!
+
+**Scrollable Log:**
+- Supports 500+ lines (no more truncation!)
+- Color-coded icons for different error types
+- Export log button to save timestamped .txt file
+
+For **detailed TUI usage** including password dialog workflow, see:
 - **[Binary TUI Guide](../binary/tui.md)** - All features work identically
 
 ---

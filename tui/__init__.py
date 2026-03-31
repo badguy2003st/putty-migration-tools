@@ -12,6 +12,6 @@ Features:
 Security-first implementation with proper cleanup and permissions.
 """
 
-__version__ = "2.0.0"
+__version__ = "1.1.0"
 __author__ = "GitHub Community"
 __license__ = "MIT"

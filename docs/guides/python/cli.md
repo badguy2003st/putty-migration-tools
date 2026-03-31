@@ -24,13 +24,38 @@ python -m tui COMMAND [OPTIONS]
 
 ### convert
 ```bash
-# Basic conversion
+# Basic conversion (auto-loads ppk_keys/passwords.txt)
 python -m tui convert
+
+# With password file (v1.1.0)
+python -m tui convert --password-file passwords.txt -v
 
 # With options
 python -m tui convert --to-ssh --conflict rename
 python -m tui convert --dry-run
+
+# Re-encryption (v1.1.0): Encrypted PPKs stay encrypted!
+python -m tui convert --password mypassword  # Auto re-encrypts
+python -m tui convert --no-encryption        # Disable re-encryption
 ```
+
+### Encrypted PPK Files (v1.1.0)
+
+**Auto-load passwords.txt:**
+```bash
+# 1. Create passwords.txt
+cat > ppk_keys/passwords.txt << 'EOF'
+mypassword
+anotherpass
+EOF
+
+# 2. Run (auto-loads automatically)
+python -m tui convert
+# ✅ Auto-loaded 2 password(s) from passwords.txt
+```
+
+**Password priority is identical to binary version:**
+- See [Binary CLI Guide](../binary/cli.md#encrypted-ppk-files-v110) for full details
 
 ### bitwarden
 ```bash

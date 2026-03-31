@@ -45,7 +45,11 @@ The tool requires these Python packages (from `requirements.txt`):
 
 - **textual** (≥0.41.0) - Terminal UI framework
 - **rich** (≥13.0.0) - Rich text and console output
-- **puttykeys** (≥1.0.3) - PPK file parsing (pure Python)
+- **cryptography** (≥41.0.0) - SSH key operations
+- **argon2pure** (≥1.3) - PPK v3 encryption (fallback)
+- **argon2-cffi-bindings** - Fast Argon2 (optional but recommended)
+
+**v1.1.0:** Custom PPK parser implemented - no puttykeys dependency!
 
 These will be installed automatically with `pip install -r tui/requirements.txt`.
 
@@ -184,7 +188,8 @@ pip install -r tui/requirements.txt
 
 # Check installed packages
 pip list | grep textual
-pip list | grep puttykeys
+pip list | grep cryptography
+pip list | grep argon2
 ```
 
 ### Python Version Issues

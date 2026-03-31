@@ -12,71 +12,141 @@ import tempfile
 import shutil
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 
 def ensure_ppk_directory(ppk_dir: Path = Path("./ppk_keys")) -> dict:
     """
-    Ensure ppk_keys directory exists, creating it if necessary.
+    Ensure ppk_keys directory + passwords.txt template exist.
     
-    This function provides a consistent way to check and create the ppk_keys
-    directory across both CLI and TUI modes, with appropriate messaging for each.
+    v1.1.0: Also creates passwords.txt for encrypted PPK support.
+    
+    This function provides a consistent way to check and create both
+    ppk_keys directory and passwords.txt template across CLI and TUI modes.
     
     Args:
         ppk_dir: Path to PPK keys directory (default: ./ppk_keys)
         
     Returns:
         dict with:
-        - 'created': bool - True if directory was just created
+        - 'created': bool - True if directory or passwords.txt was created
+        - 'created_dir': bool - True if directory was created
+        - 'created_passwords': bool - True if passwords.txt was created
         - 'path': Path - Absolute path to the directory
+        - 'passwords_file': Path - Path to passwords.txt
         - 'cli_message': str - Ready-to-print message for CLI mode
         - 'tui_title': str - Title for TUI modal dialog
         - 'tui_message': str - Message for TUI modal dialog
-        
-    Example (CLI):
-        >>> check = ensure_ppk_directory()
-        >>> if check['created']:
-        ...     print(check['cli_message'])
-        ...     return 0
-        
-    Example (TUI):
-        >>> check = ensure_ppk_directory()
-        >>> if check['created']:
-        ...     self.push_screen(MessageBox(
-        ...         title=check['tui_title'],
-        ...         message=check['tui_message']
-        ...     ))
     """
     ppk_dir = ppk_dir.resolve()
+    passwords_file = ppk_dir / "passwords.txt"
     
+    created_dir = False
+    created_passwords = False
+    
+    # Create directory if needed
     if not ppk_dir.exists():
         ppk_dir.mkdir(parents=True, exist_ok=True)
+        created_dir = True
+    
+    # Create passwords.txt template if needed
+    if not passwords_file.exists():
+        template = """One password per line (no comments allowed)
+Empty lines are ignored
+All characters including # are part of the password
+
+
+
+
+
+
+
+
+
+
+
+"""
+        passwords_file.write_text(template, encoding='utf-8')
+        created_passwords = True
+    
+    if created_dir or created_passwords:
+        # Build messages
+        cli_parts = ["📁 Setup complete!\n"]
+        tui_parts = []
+        
+        if created_dir:
+            cli_parts.append(f"   ✓ Created: {ppk_dir}")
+            tui_parts.append(f"✓ Created: {ppk_dir.name}/")
+        
+        if created_passwords:
+            cli_parts.append(f"   ✓ Created: passwords.txt")
+            tui_parts.append(f"✓ Created: passwords.txt")
+        
+        cli_parts.extend([
+            "\nNext steps:",
+            "  1. Copy .ppk files to this directory",
+            "  2. For encrypted PPKs: Add passwords to passwords.txt",
+            "  3. Run this command again\n"
+        ])
+        
+        tui_msg = tui_parts + [
+            "",
+            "Next steps:",
+            "• Copy .ppk files to ppk_keys/",
+            "• For encrypted PPKs: Edit passwords.txt",
+            "• Then use 'Convert PPK Keys' menu"
+        ]
+        
         return {
             'created': True,
+            'created_dir': created_dir,
+            'created_passwords': created_passwords,
             'path': ppk_dir,
-            # For CLI output
-            'cli_message': (
-                "📁 First-time setup complete!\n\n"
-                f"   Created directory: {ppk_dir}\n\n"
-                "Next steps:\n"
-                "  1. Copy your .ppk files to this directory\n"
-                "  2. Run this command again\n"
-            ),
-            # For TUI modal dialog
-            'tui_title': "📁 First-Time Setup",
-            'tui_message': (
-                f"Created working directory:\n"
-                f"  {ppk_dir}\n\n"
-                "Place your .ppk files in this directory.\n\n"
-                "What to do next:\n"
-                "  • If headless: Press 'q' to quit\n"
-                "  • Otherwise: Copy .ppk files there\n"
-                "  • Then use 'Convert PPK Keys' from the menu\n\n"
-                f"Directory: {ppk_dir.name}/"
-            )
+            'passwords_file': passwords_file,
+            'cli_message': "\n".join(cli_parts),
+            'tui_title': "📁 Setup Complete",
+            'tui_message': "\n".join(tui_msg)
         }
     
-    return {'created': False, 'path': ppk_dir}
+    return {
+        'created': False,
+        'path': ppk_dir,
+        'passwords_file': passwords_file
+    }
+
+
+def load_password_file(passwords_file: Path) -> List[str]:
+    """
+    Load passwords from passwords.txt.
+    
+    Format (v1.1.0): One password per line, no comments.
+    Every non-empty line is treated as a password.
+    Preserves leading/trailing spaces (part of password).
+    
+    Args:
+        passwords_file: Path to passwords.txt
+        
+    Returns:
+        List of passwords (empty list if file doesn't exist)
+        
+    Example:
+        passwords = load_password_file(Path("ppk_keys/passwords.txt"))
+        if passwords:
+            print(f"Loaded {len(passwords)} password(s)")
+    """
+    if not passwords_file.exists():
+        return []
+    
+    try:
+        content = passwords_file.read_text(encoding='utf-8')
+        passwords = [
+            line.rstrip('\r\n')  # Remove line ending, preserve spaces!
+            for line in content.splitlines()
+            if line.strip()  # Skip only completely empty lines
+        ]
+        return passwords
+    except Exception:
+        return []
 
 
 def write_file_atomic(

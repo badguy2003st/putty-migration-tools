@@ -59,6 +59,7 @@ Converts `.ppk` files to OpenSSH format.
 
 ### Prerequisites
 - Place your `.ppk` files in the `ppk_keys/` directory
+- For encrypted PPKs: Add passwords to `ppk_keys/passwords.txt` (auto-created)
 - The TUI will automatically scan for files
 
 ### Workflow
@@ -77,7 +78,188 @@ Converts `.ppk` files to OpenSSH format.
 4. **Start Conversion**
    - Click "▶ Start Conversion"
    - Live progress bar shows conversion status
-   - Log output displays results
+   - Scrollable log displays results (500+ lines supported)
+
+### Encrypted PPK Files (v1.1.0)
+
+#### Automatic Password Loading
+
+The TUI automatically creates and loads `ppk_keys/passwords.txt`:
+
+**First Run:**
+1. TUI detects missing directories
+2. Creates `ppk_keys/` and `passwords.txt` template
+3. Shows notification:
+   ```
+   📁 Setup Complete
+   
+   ✓ Created: ppk_keys/
+   ✓ Created: passwords.txt
+   
+   Next steps:
+   • Copy .ppk files to ppk_keys/
+   • For encrypted PPKs: Edit passwords.txt
+   • Then use 'Convert PPK Keys' menu
+   ```
+
+**Format (passwords.txt):**
+```
+One password per line (no comments allowed)
+All characters including # are part of the password
+Empty lines are ignored
+
+mypassword123
+#hashtagPassword
+password with spaces
+```
+
+**Auto-Load Behavior:**
+- Automatically loads `ppk_keys/passwords.txt`
+- Tries all passwords for each encrypted file
+- Shows count: "Loaded 3 password(s) from passwords.txt"
+
+#### Automatic Re-encryption (v1.1.0) 🔐
+
+**Security by Default:**
+Encrypted PPK keys stay encrypted after conversion!
+
+**Behavior:**
+- ✅ Encrypted PPK → Encrypted OpenSSH (automatic, transparent)
+- ✅ Password preserved from passwords.txt or manual dialog
+- ✅ Unencrypted PPK → Unencrypted OpenSSH (no change)
+
+**Examples:**
+```
+PPK Files:
+  server.ppk (encrypted, password: "test123")
+  database.ppk (unencrypted)
+
+After Conversion:
+  → server (OpenSSH, encrypted with "test123") ✅
+  → server.pub (public key, unencrypted) ✅
+  → database (OpenSSH, unencrypted) ✅
+  → database.pub (public key, unencrypted) ✅
+```
+
+**No User Action Required:**
+- Completely automatic and transparent
+- Works with both passwords.txt and manual dialog
+- Prevents accidental key exposure
+
+#### Interactive Password Dialog
+
+If passwords.txt doesn't contain the right password, an interactive dialog appears:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔒 Password Required [2/5]
+
+File: production-server.ppk
+
+⚠️  Tried 2 password(s) from passwords.txt
+   None of them worked for this file
+
+Enter password or choose an option:
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Type password here...                  ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+[✓ Try Password]  [⏭ Skip This File]  [✕ Cancel & Edit]
+
+💡 Tip: Edit ppk_keys/passwords.txt to add passwords
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Options:**
+
+1. **✓ Try Password**
+   - Enter password in text field
+   - Press `Enter` or click button
+   - If wrong → Dialog shows again with new attempt
+   - If correct → Conversion continues automatically
+
+2. **⏭ Skip This File**
+   - Current file marked as "Skipped by user"
+   - Batch continues with next file
+   - Good when you don't know the password
+
+3. **✕ Cancel & Edit passwords.txt**
+   - Stops entire batch immediately
+   - Shows helpful message: "Edit ppk_keys/passwords.txt"
+   - Re-run conversion when ready
+   - Good when you want to add multiple passwords
+
+**Keyboard Shortcuts:**
+- `Enter` in password field → Try Password
+- `ESC` → Cancel & Edit
+
+### Log Output & Export (v1.1.0)
+
+#### Scrollable Log
+
+The conversion log is now fully scrollable:
+- ✅ **Supports 500+ lines** (no more truncation!)
+- ✅ **Color-coded icons** (✅ success, ⚠️ warning, ❌ error, 🔒 password, ⏭ skip)
+- ✅ **Multi-line errors** - Long messages wrapped intelligently
+- ✅ **Context-specific guidance** for each error type
+
+**Navigation:**
+- **Mouse wheel:** Scroll up/down
+- **↑/↓ arrow keys:** Line-by-line scrolling
+- **Page Up/Down:** Scroll by page
+- **Auto-scroll:** Automatically scrolls to bottom during conversion
+
+**Log Example:**
+```
+Conversion Log:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ server.ppk → openssh_keys
+✅ database.ppk → openssh_keys
+🔒 encrypted.ppk: Password required
+   → Add password to passwords.txt
+⚠️  Ed448-test.ppk: Ed448 not supported
+   → Use Ed25519 instead
+⏭  server.pub: Public key (skip)
+   → Remove .pub files from ppk_keys/
+❌ dsa-key.ppk: DSA deprecated
+   → Generate new RSA or Ed25519 key
+```
+
+#### Export Log Button (v1.1.0)
+
+Save the conversion log to a text file:
+
+**Steps:**
+1. Run a conversion (log populates)
+2. Click **💾 Export Log** button (enabled after conversion)
+3. File saved with timestamp: `conversion_log_YYYYMMDD_HHMMSS.txt`
+4. Notification shows:
+   ```
+   Export Complete
+   
+   Log exported successfully!
+   
+   File: C:\...\conversion_log_20260330_043000.txt
+   Lines: 25
+   ```
+
+**Exported File Format:**
+```
+PPK Migration Tools - Conversion Log
+Generated: 2026-03-30 04:30:00
+
+✅ key1.ppk → openssh_keys
+✅ key2.ppk → openssh_keys
+🔒 encrypted.ppk: Password required
+   → Check/update passwords.txt
+...
+```
+
+**Use Cases:**
+- Share conversion results with team
+- Troubleshooting with logs
+- Keep record of migrations
+- Report bugs with detailed logs
 
 ### Linux: Copy to ~/.ssh
 
@@ -101,7 +283,7 @@ Keys created in ~/.ssh:
 
 ---
 
-## 📤 Export Sessions
+## � Export Sessions
 
 Export PuTTY sessions to modern formats.
 
@@ -245,7 +427,7 @@ Displays version information and feature list.
 **Solution:**
 ```bash
 # Verify dependencies (if using Python version)
-pip install textual puttykeys rich
+pip install textual cryptography rich argon2pure
 
 # Or use the binary (no dependencies needed)
 ```

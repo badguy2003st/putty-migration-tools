@@ -39,6 +39,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r tui/requirements.txt
           pip install nuitka ordered-set
+          
+          # PPK v3 performance optimization (v1.0.4+)
+          pip install argon2-cffi-bindings || echo "Warning: argon2-cffi-bindings not available"
       
       - name: Extract version from tag
         id: get_version
@@ -95,14 +98,14 @@ jobs:
           body: |
             ## PuTTY Migration Tools v${{ steps.get_version.outputs.version }}
             
-            > 🚀 **Native compiled binaries** using Nuitka - Single file executables, no installation required!
+            **Native compiled binaries** using Nuitka - Single file executables, no installation required!
             
-            ### 📥 Downloads
+            ### Downloads
             
-            - **Windows**: `putty-migrate-v${{ steps.get_version.outputs.version }}-windows.exe` (~20 MB)
-            - **Linux**: `putty-migrate-v${{ steps.get_version.outputs.version }}-linux` (~18 MB)
+            - **Windows**: `putty-migrate-v${{ steps.get_version.outputs.version }}-windows.exe` (~25 MB)
+            - **Linux**: `putty-migrate-v${{ steps.get_version.outputs.version }}-linux` (~23 MB)
             
-            ### 🚀 Quick Start
+            ### Quick Start
             
             **Windows:**
             ```cmd
@@ -115,25 +118,27 @@ jobs:
             ./putty-migrate-v${{ steps.get_version.outputs.version }}-linux
             ```
             
-            ### 📖 Documentation
+            ### Documentation
             
             - [README.md](https://github.com/${{ github.repository }}/blob/main/README.md)
             - [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
             - [Installation Guide](https://github.com/${{ github.repository }}/tree/main/docs/installation)
             
-            ### ✨ Features
+            ### Features
             
-            - 🖥️ **Interactive TUI** - Beautiful terminal interface
-            - ⌨️ **Powerful CLI** - Automation-friendly commands
-            - 🔐 **Bitwarden Export** - Secure password manager integration
-            - 📁 **PPK → OpenSSH** - Convert PuTTY keys to OpenSSH format
-            - 🎨 **Tabby Terminal** - Export sessions to Tabby config
-            - ⚙️ **SSH Config** - Generate OpenSSH config files
+            - **Interactive TUI** - Beautiful terminal interface
+            - **Powerful CLI** - Automation-friendly commands
+            - **PPK v3 Support** - Convert encrypted PuTTY keys (PuTTY 0.75+)
+            - **Bitwarden Export** - Secure password manager integration
+            - **PPK to OpenSSH** - Convert PuTTY keys to OpenSSH format
+            - **Tabby Terminal** - Export sessions to Tabby config
+            - **SSH Config** - Generate OpenSSH config files
             
-            ### 🔧 Technical Details
+            ### Technical Details
             
             - **Compiler**: Nuitka (native Python-to-C compilation)
-            - **No DLL dependencies** on runtime (all embedded)
+            - **PPK v3**: Fast Argon2id with automatic backend selection
+            - **No DLL dependencies** - all embedded
             - **Single executable** - no extraction needed
             - **Python 3.11** compatible
             

@@ -39,6 +39,9 @@ class SSHConfigEntry:
     comments: List[str] = None
     """Additional comments"""
     
+    session_name: Optional[str] = None
+    """Original PuTTY session name (displayed as comment above Host block)"""
+    
     def __post_init__(self):
         if self.comments is None:
             self.comments = []
@@ -51,6 +54,10 @@ class SSHConfigEntry:
             SSH config formatted string
         """
         lines = []
+        
+        # Session name as comment ABOVE the Host block
+        if self.session_name:
+            lines.append(f"# Name der alten PuTTY Session: {self.session_name}")
         
         # Host line
         lines.append(f"Host {self.host_alias}")
@@ -66,11 +73,11 @@ class SSHConfigEntry:
         if self.port != 22:
             lines.append(f"    Port {self.port}")
         
-        #  Identity file (if specified)
+        # Identity file (if specified) - WITHOUT quotes
         if self.identity_file:
             lines.append(f"    IdentityFile {self.identity_file}")
         
-        # Add comments
+        # Add comments (only for TODO/warnings)
         for comment in self.comments:
             lines.append(f"    # {comment}")
         
@@ -253,7 +260,7 @@ class SSHConfigGenerator:
                     )
                     identity_file = openssh_path
                     self.registry.link_session_to_key(key_hash, session.name)
-                    comments.append(f"Converted from: {auth.key_file}")
+                    comments.append(f'Converted from: "{auth.key_file}"')
                 except Exception as e:
                     print(f"      ⚠️  Cannot register key: {e}")
                     comments.append(f"TODO: Convert key manually: {auth.key_file}")
@@ -333,6 +340,8 @@ def generate_ssh_config_content(sessions: List[PuttySession]) -> str:
         sessions = read_putty_sessions()
         config_content = generate_ssh_config_content(sessions)
     """
+    from .converter import normalize_key_name
+    
     entries = []
     
     for session in sessions:
@@ -350,10 +359,11 @@ def generate_ssh_config_content(sessions: List[PuttySession]) -> str:
         comments = []
         
         if auth.method == "key" and auth.key_file:
-            # Use the PPK path directly (user should convert first)
+            # Normalize key name (spaces → hyphens)
             key_name = os.path.splitext(os.path.basename(auth.key_file))[0]
+            key_name = normalize_key_name(key_name)
             identity_file = f"~/.ssh/{key_name}"
-            comments.append(f"Requires conversion of: {auth.key_file}")
+            # Don't add conversion comment - assume keys are already converted
         elif auth.method == "pageant":
             comments.append("Originally used Pageant")
             comments.append("TODO: Specify IdentityFile path")
@@ -362,7 +372,8 @@ def generate_ssh_config_content(sessions: List[PuttySession]) -> str:
         
         # Create entry
         entry = SSHConfigEntry(
-            host_alias=session.name,
+            session_name=session.name,  # Original session name for comment
+            host_alias=hostname,         # Use IP/hostname as Host
             hostname=hostname,
             port=session.port,
             user=username if username else None,

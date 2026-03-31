@@ -82,19 +82,83 @@ putty-migrate convert -i C:\Keys\PPK -o C:\Keys\OpenSSH
 putty-migrate convert -i ~/Documents/keys -o ~/converted
 ```
 
-### Encrypted PPK Files
+### Encrypted PPK Files (v1.1.0)
 
-Some PPK files are password-protected:
+#### Method 1: passwords.txt (Recommended)
 
+The tool automatically creates and uses `ppk_keys/passwords.txt`:
+
+**Location:** `ppk_keys/passwords.txt`
+
+**Format:**
+```
+One password per line (no comments allowed)
+All characters including # are part of the password
+Empty lines are ignored
+
+mypassword123
+#hashtagPassword
+password with spaces
+```
+
+**First-Time Setup:**
 ```bash
-# Provide password via command line
+# Run tool once to create template
+putty-migrate convert
+# → Creates ppk_keys/ and passwords.txt template
+
+# Edit the file and add your passwords
+notepad ppk_keys\passwords.txt  # Windows
+nano ppk_keys/passwords.txt     # Linux
+```
+
+**Auto-Load Behavior:**
+- **CLI**: Automatically loads if exists
+- **TUI**: Automatically loads if exists
+- Tries all passwords sequentially
+- Shows which password worked (with `-v`)
+
+#### Method 2: TUI Password Dialog
+
+If passwords.txt doesn't contain the right password, TUI shows an interactive dialog:
+
+**Options:**
+1. **Try Password** - Enter password manually and retry
+2. **Skip This File** - Skip and continue with next file
+3. **Cancel & Edit** - Stop batch, edit passwords.txt
+
+**Workflow:**
+1. Add .ppk files to `ppk_keys/`
+2. Run TUI: `putty-migrate`
+3. Select "Convert PPK Keys"
+4. If password needed → Dialog shows
+5. Enter password or choose option
+
+#### Method 3: CLI Flags
+
+**Direct Password:**
+```bash
+# Single password for all encrypted files
 putty-migrate convert --password "YourPassword"
 ```
 
-**Security Note:** Avoid passwords in shell history:
-- Use TUI for interactive password prompt
-- Or set in environment variable
-- Or use password manager
+**Custom Password File:**
+```bash
+# Use different file (one password per line)
+putty-migrate convert --password-file ~/my-passwords.txt -v
+
+# Verbose shows which password worked:
+# ✓ server.ppk (password #2)
+# ✓ database.ppk (unencrypted)
+```
+
+**Password Priority:**
+1. `--password` (CLI argument) - Highest priority
+2. `--password-file` (custom file) - If specified
+3. `passwords.txt` (auto-load) - Default
+4. No password - Only unencrypted keys work
+
+**Security Note:** Avoid passwords in shell history - use passwords.txt or TUI dialog
 
 ### Dry Run (Preview)
 

@@ -19,6 +19,9 @@ try:
 except ImportError:
     puttykeys = None
 
+# Import new unified PPK parser (v1.0.4+)
+from .ppk_parser import decrypt_ppk, detect_ppk_info, get_ppk_version
+
 
 @dataclass
 class ConversionResult:
@@ -38,11 +41,37 @@ class ConversionResult:
     
     format: str = "openssh"
     """Output format: openssh, ssh.com, etc."""
+    
+    password_index: Optional[int] = None
+    """Which password from list succeeded (v1.1.0, 0=unencrypted, 1+=password number)"""
 
 
 class ConversionError(Exception):
     """Exception raised when PPK conversion fails."""
     pass
+
+
+def normalize_key_name(name: str) -> str:
+    """
+    Normalize key names for filesystem compatibility.
+    
+    Replaces spaces with hyphens to avoid path issues and improve
+    compatibility with SSH config files.
+    
+    Args:
+        name: Original key name (may contain spaces)
+        
+    Returns:
+        Normalized name (spaces replaced with hyphens)
+        
+    Example:
+        >>> normalize_key_name("bggaming.de dagobert23.de")
+        'bggaming.de-dagobert23.de'
+        
+        >>> normalize_key_name("my server key")
+        'my-server-key'
+    """
+    return name.replace(" ", "-")
 
 
 def detect_key_type(ppk_content: str) -> Optional[str]:
@@ -112,6 +141,52 @@ async def check_puttykeys_available() -> bool:
     return puttykeys is not None
 
 
+def encrypt_openssh_key(openssh_key: str, password: str) -> str:
+    """
+    Encrypt an OpenSSH private key with a password.
+    
+    v1.1.0: Re-encryption support for keeping original PPK password.
+    Uses cryptography library's best_available_encryption().
+    
+    Args:
+        openssh_key: Unencrypted OpenSSH private key
+        password: Password to encrypt with
+        
+    Returns:
+        Encrypted OpenSSH private key
+        
+    Raises:
+        ValueError: If encryption fails
+        
+    Example:
+        encrypted = encrypt_openssh_key(openssh_key, "mypassword")
+    """
+    try:
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.backends import default_backend
+        
+        # Load the unencrypted key
+        private_key = serialization.load_ssh_private_key(
+            openssh_key.encode(),
+            password=None,
+            backend=default_backend()
+        )
+        
+        # Re-serialize with encryption
+        encrypted_key = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.OpenSSH,
+            encryption_algorithm=serialization.BestAvailableEncryption(
+                password.encode('utf-8')
+            )
+        )
+        
+        return encrypted_key.decode('utf-8')
+        
+    except Exception as e:
+        raise ValueError(f"Failed to encrypt OpenSSH key: {str(e)}")
+
+
 def extract_public_key_from_openssh(openssh_private_key: str) -> str:
     """
     Extract the public key from an OpenSSH private key.
@@ -162,8 +237,10 @@ async def convert_ppk_to_openssh(
     ppk_file: Path,
     output_file: Path,
     password: Optional[str] = None,
+    passwords: Optional[List[str]] = None,
     progress_callback: Optional[Callable[[int], None]] = None,
-    clean_format: bool = True
+    clean_format: bool = True,
+    keep_encryption: bool = False
 ) -> ConversionResult:
     """
     Convert a PPK file to OpenSSH format using puttykeys library.
@@ -246,37 +323,68 @@ async def convert_ppk_to_openssh(
         if progress_callback:
             progress_callback(40)
         
-        # Convert using puttykeys library
-        # Run in executor since it's CPU-intensive
-        # Note: puttykeys expects empty string for unencrypted keys, not None
-        passphrase = password if password is not None else ''
-        openssh_key = await loop.run_in_executor(
+        # Convert using unified PPK parser (supports v2 and v3)
+        # v1.1.0: Supports multi-password file
+        # Run in executor since it's CPU-intensive (especially for v3 Argon2id)
+        result = await loop.run_in_executor(
             None,
-            lambda: puttykeys.ppkraw_to_openssh(ppk_content, passphrase)
+            lambda: decrypt_ppk(ppk_content, password=password, passwords=passwords)
         )
         
-        # Check if conversion failed (puttykeys returns None for unsupported keys)
-        if openssh_key is None:
-            key_type = detect_key_type(ppk_content)
-            if key_type == 'ssh-dss':
-                error_msg = "DSA keys are not supported (deprecated and insecure). Please generate a new RSA or Ed25519 key."
-            elif key_type and key_type not in ['ssh-rsa', 'ssh-ed25519']:
-                error_msg = f"Key type '{key_type}' is not supported. Only RSA and Ed25519 keys are supported."
-            else:
-                error_msg = "Unsupported key type. Only RSA and Ed25519 keys are supported."
-            
+        # Check if conversion failed
+        if not result.success:
             return ConversionResult(
                 success=False,
                 ppk_file=str(ppk_file),
-                error=error_msg
+                error=result.error
             )
+        
+        openssh_key = result.openssh_key
         
         if progress_callback:
             progress_callback(70)
         
+        # CRITICAL: Extract public key BEFORE re-encryption!
+        # Encrypted keys cannot be used for public key extraction
+        public_key_content = None
+        try:
+            from cryptography.hazmat.primitives import serialization
+            from cryptography.hazmat.backends import default_backend
+            
+            # Parse the decrypted private key
+            private_key = serialization.load_ssh_private_key(
+                openssh_key.encode(),
+                password=None,
+                backend=default_backend()
+            )
+            
+            # Extract public key
+            public_key = private_key.public_key()
+            public_key_bytes = public_key.public_bytes(
+                encoding=serialization.Encoding.OpenSSH,
+                format=serialization.PublicFormat.OpenSSH
+            )
+            public_key_content = public_key_bytes.decode('utf-8')
+        except Exception:
+            # Public key extraction failed - not critical, continue
+            pass
+        
+        # v1.1.0: Re-encrypt with original password if requested
+        if keep_encryption and result.was_encrypted and result.password_used:
+            try:
+                openssh_key = await loop.run_in_executor(
+                    None,
+                    lambda: encrypt_openssh_key(openssh_key, result.password_used)
+                )
+            except Exception as e:
+                # Re-encryption failed - log but continue with unencrypted key
+                # This prevents data loss on encryption failure
+                pass
+        
         # Optional: Re-serialize with cryptography for guaranteed clean format
         # This is important for Bitwarden compatibility
-        if clean_format:
+        # NOTE: Skip if key was just encrypted (already in clean format)
+        if clean_format and not (keep_encryption and result.was_encrypted):
             try:
                 from .bitwarden_export import ensure_clean_openssh_format
                 openssh_key = await loop.run_in_executor(
@@ -291,7 +399,7 @@ async def convert_ppk_to_openssh(
         if progress_callback:
             progress_callback(80)
         
-        # Write output file
+        # Write private key file
         await loop.run_in_executor(
             None,
             lambda: output_file.write_text(openssh_key, encoding='utf-8')
@@ -300,13 +408,25 @@ async def convert_ppk_to_openssh(
         # Set secure permissions (600 - owner read/write only)
         os.chmod(output_file, stat.S_IRUSR | stat.S_IWUSR)
         
+        # Write public key file if extraction succeeded
+        # BUG FIX: Use string concat to avoid with_suffix() bug with dots in filename
+        if public_key_content:
+            pub_file = Path(str(output_file) + '.pub')
+            await loop.run_in_executor(
+                None,
+                lambda: pub_file.write_text(public_key_content + "\n", encoding='utf-8')
+            )
+            # Set public key permissions (644)
+            os.chmod(pub_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+        
         if progress_callback:
             progress_callback(100)
         
         return ConversionResult(
             success=True,
             ppk_file=str(ppk_file),
-            output_file=str(output_file)
+            output_file=str(output_file),
+            password_index=getattr(result, 'password_index', None)
         )
         
     except Exception as e:
@@ -413,7 +533,9 @@ async def batch_convert_ppk_files(
     ppk_files: List[Path],
     output_dir: Path,
     password: Optional[str] = None,
-    progress_callback: Optional[Callable[[int, int, str], None]] = None
+    passwords: Optional[List[str]] = None,
+    progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    keep_encryption: bool = True
 ) -> List[ConversionResult]:
     """
     Convert multiple PPK files in batch.
@@ -423,6 +545,7 @@ async def batch_convert_ppk_files(
         output_dir: Directory for output files
         password: Optional passphrase for encrypted PPK files (same for all)
         progress_callback: Optional callback(current, total, filename)
+        keep_encryption: v1.1.0: Re-encrypt with original password (default: True)
         
     Returns:
         List of ConversionResult objects
@@ -450,12 +573,15 @@ async def batch_convert_ppk_files(
         if progress_callback:
             progress_callback(i, total, ppk_file.name)
         
-        # Generate output filename (remove .ppk extension)
-        output_name = ppk_file.stem
+        # Generate output filename (remove .ppk extension + normalize spaces)
+        output_name = normalize_key_name(ppk_file.stem)
         output_file = output_dir / output_name
         
-        # Convert the file
-        result = await convert_ppk_to_openssh(ppk_file, output_file, password)
+        # Convert the file (v1.1.0: with multi-password support + re-encryption)
+        result = await convert_ppk_to_openssh(
+            ppk_file, output_file, password, passwords,
+            keep_encryption=keep_encryption
+        )
         results.append(result)
         
         # Also extract public key if private conversion succeeded
@@ -535,6 +661,16 @@ async def copy_key_to_ssh(
     
     source_file = Path(source_file)
     dest_path = ssh_dir / source_file.name
+    
+    # Check if source and destination are the same file
+    # This happens when keys are already in ~/.ssh
+    if source_file.resolve() == dest_path.resolve():
+        return {
+            'success': True,
+            'source': str(source_file),
+            'destination': str(dest_path),
+            'action': 'skipped'  # Already in correct location
+        }
     
     # Determine if source is public or private key
     is_public = source_file.suffix == ".pub"

@@ -38,9 +38,11 @@ putty-migrate convert
 -o, --output DIR         Output directory (default: ./openssh_keys)
 --to-ssh                 Copy to ~/.ssh (Linux only)
 --conflict MODE          Conflict resolution: rename|overwrite|skip (default: rename)
---password PASS          Password for encrypted PPK files
+--password PASS          Password for single encrypted PPK
+--password-file FILE     File with passwords to try (v1.1.0)
+--no-encryption          Disable re-encryption (v1.1.0: encrypted → unencrypted)
 --dry-run                Preview without writing files
--v, --verbose            Verbose output
+-v, --verbose            Verbose output (shows which password worked)
 -h, --help               Show help message
 ```
 
@@ -68,11 +70,110 @@ putty-migrate convert --to-ssh --conflict skip
 # Dry run (preview only)
 putty-migrate convert --dry-run
 
-# Encrypted PPK files
+# Encrypted PPK with single password
 putty-migrate convert --password "MySecretPassword"
 
-# Verbose output
+# Encrypted PPK with password file (v1.1.0)
+putty-migrate convert --password-file passwords.txt -v
+
+# Verbose output (shows which password worked)
 putty-migrate convert -v
+
+# Disable re-encryption (v1.1.0: keys become unencrypted)
+putty-migrate convert --no-encryption
+```
+
+### Re-encryption (v1.1.0) 🔐
+
+**Default Behavior (Secure!):**
+Encrypted PPK keys stay encrypted in OpenSSH format.
+
+```bash
+# Encrypted PPK → Encrypted OpenSSH (automatic!)
+putty-migrate convert --password mypassword
+
+# Result: OpenSSH key is re-encrypted with same password
+```
+
+**Disable Re-encryption:**
+```bash
+# Encrypted PPK → Unencrypted OpenSSH
+putty-migrate convert --password mypassword --no-encryption
+```
+
+**Multi-Password with Re-encryption:**
+```bash
+# Each key re-encrypted with its successful password
+putty-migrate convert --password-file passwords.txt
+
+# key1.ppk (password #1) → key1 (encrypted with password #1)
+# key2.ppk (password #3) → key2 (encrypted with password #3)
+# key3.ppk (unencrypted) → key3 (unencrypted)
+```
+
+### Encrypted PPK Files (v1.1.0)
+
+#### Auto-Load passwords.txt
+
+The CLI automatically loads `ppk_keys/passwords.txt` if it exists:
+
+**Setup:**
+```bash
+# 1. Create passwords.txt
+cat > ppk_keys/passwords.txt << 'EOF'
+password123
+mySecretPass
+#hashtagPassword
+EOF
+
+# 2. Run conversion (auto-loads passwords.txt)
+putty-migrate convert
+
+# Output:
+# ✅ Auto-loaded 3 password(s) from passwords.txt
+# [1/5] server.ppk
+# [2/5] database.ppk...
+```
+
+**Format Rules:**
+- One password per line
+- No comments (# is part of password!)
+- Empty lines ignored
+- Spaces are preserved
+
+#### Custom Password File
+
+Use a different password file:
+
+```bash
+# Specify custom file
+putty-migrate convert --password-file ~/my-passwords.txt -v
+
+# Verbose shows which password worked:
+# ✓ server.ppk (password #2)
+# ✓ database.ppk (unencrypted)
+# ✓ production.ppk (password #1)
+```
+
+#### Password Priority
+
+When multiple password sources are available:
+
+1. **--password** (CLI argument) - Highest priority, overrides all
+2. **--password-file** (custom file) - If specified, skips auto-load
+3. **passwords.txt** (auto-load) - Default if exists
+4. **No password** - Only unencrypted keys work
+
+**Examples:**
+```bash
+# Use auto-loaded passwords.txt
+putty-migrate convert
+
+# Override with custom file
+putty-migrate convert --password-file ~/other.txt
+
+# Override with single password
+putty-migrate convert --password "direct_password"
 ```
 
 ### Output

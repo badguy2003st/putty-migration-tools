@@ -48,8 +48,9 @@ python -m nuitka --onefile --assume-yes-for-downloads \
   --output-dir=dist --output-filename=putty-migrate-v1.0.3-windows.exe \
   --windows-console-mode=force \
   --include-package=tui --include-package=textual \
-  --include-package=puttykeys --include-package=cryptography \
-  --include-package=rich --include-package-data=rich \
+  --include-package=cryptography --include-package=rich \
+  --include-package=argon2pure --include-package=_argon2_cffi_bindings \
+  --include-package-data=rich \
   --include-package-data=textual \
   putty_migrate.py
 
@@ -57,11 +58,13 @@ python -m nuitka --onefile --assume-yes-for-downloads \
 python -m nuitka --onefile --assume-yes-for-downloads \
   --output-dir=dist --output-filename=putty-migrate-v1.0.3-linux \
   --include-package=tui --include-package=textual \
-  --include-package=puttykeys --include-package=cryptography \
-  --include-package=rich --include-package-data=rich \
-  --include-package-data=textual \
+  --include-package=cryptography --include-package=rich \
+  --include-package=argon2pure --include-package=_argon2_cffi_bindings \
+  --include-package-data=rich --include-package-data=textual \
   putty_migrate.py
 ```
+
+**v1.1.0 Note:** `puttykeys` removed - custom PPK v2+v3 parser implemented
 
 ---
 
@@ -112,7 +115,7 @@ dist/
 
 **Includes:**
 - Native compiled Python runtime
-- All dependencies (textual, puttykeys, rich, cryptography)
+- All dependencies (textual, cryptography, rich, argon2pure)
 - Application code (compiled to C)
 - TUI styles (styles.tcss)
 - Rich unicode data files
@@ -131,7 +134,8 @@ The `build.py` script configures Nuitka with:
 ```python
 --include-package=tui              # Main application package
 --include-package=textual          # TUI framework
---include-package=puttykeys        # PPK parser
+--include-package=argon2pure       # PPK v3 support (v1.1.0: custom parser)
+--include-package=_argon2_cffi_bindings  # Fast Argon2
 --include-package=cryptography     # SSH operations
 --include-package=rich             # Terminal formatting
 --include-package-data=rich        # Rich unicode data files
