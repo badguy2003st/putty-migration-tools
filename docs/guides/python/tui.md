@@ -21,10 +21,18 @@ The Python version provides the **same TUI features** as the binary version:
 
 - 🔑 Convert PPK Keys (with password dialog - v1.1.0)
 - 📤 Export Sessions
-- 📋 Export to SSH Config
+- 📦 Export All to ZIP / 📥 Import All from ZIP (v1.1.1 - platform-specific)
 - 💾 Export Log (v1.1.0)
 - ⚙️ Settings
 - ℹ️ About
+
+### Main Menu (v1.1.1 Platform-Specific)
+
+**Windows:**
+- 📦 Export All to ZIP ← NEW!
+
+**Linux:**
+- 📥 Import All from ZIP ← NEW!
 
 ### Encrypted PPK Support (v1.1.0)
 

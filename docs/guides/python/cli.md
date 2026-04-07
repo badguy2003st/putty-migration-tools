@@ -17,6 +17,8 @@ python -m tui COMMAND [OPTIONS]
 - `bitwarden` - Export to Bitwarden SSH Key vault
 - `tabby` - Export to Tabby terminal
 - `ssh-config` - Generate SSH config file
+- `export-all` - Export all to ZIP (v1.1.1, Windows only)
+- `import-all` - Import from ZIP (v1.1.1, Linux only)
 
 ---
 

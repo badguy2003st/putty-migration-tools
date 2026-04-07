@@ -12,7 +12,8 @@ Modern migration tools for PuTTY sessions and SSH keys. Migrate from PuTTY to **
 
 - 🖥️ **Interactive TUI** - Beautiful terminal interface for guided migrations
 - ⌨️ **Powerful CLI** - Full automation with `convert`, `bitwarden`, `tabby`, `ssh-config` commands
-- 🔐 **Bitwarden Export** - Store SSH keys in Bitwarden vault with SSH Agent support
+- 📦 **Complete Export/Import** - Windows → ZIP → Linux workflow (v1.1.1)
+-  **Bitwarden Export** - Store SSH keys in Bitwarden vault with SSH Agent support
 - 📁 **PPK → OpenSSH Conversion** - Pure Python, cross-platform key conversion (PPK v2 & v3)
 - 🔐 **Encryption Preservation** - Encrypted PPKs stay encrypted (v1.1.0 - secure by default!)
 - ⚡ **Fast Performance** - 590x speedup for PPK v3 encrypted keys with automatic optimization
@@ -29,8 +30,8 @@ Modern migration tools for PuTTY sessions and SSH keys. Migrate from PuTTY to **
 
 Get the latest binary from [Releases](https://github.com/badguy2003st/putty-migration-tools/releases):
 
-- **Windows**: `putty-migrate-v1.0.0-windows.exe`
-- **Linux**: `putty-migrate-v1.0.0-linux`
+- **Windows**: `putty-migrate-vX.X.X-windows.exe`
+- **Linux**: `putty-migrate-vX.X.X-linux`
 
 ### 2. Run
 
@@ -70,6 +71,58 @@ putty-migrate ssh-config
 # Get help
 putty-migrate --help
 ```
+
+---
+
+## 🔄 Export/Import Workflow (v1.1.1)
+
+### Windows → Linux Migration
+
+**Step 1: Export on Windows**
+```bash
+# Interactive TUI\
+putty-migrate
+
+# CLI
+putty-migrate export-all
+
+# CLI with custom output
+putty-migrate export-all -o my-migration.zip
+```
+
+**Creates:** `putty-migration-export-YYYYMMDD-HHMMSS.zip` containing:
+- ✅ Converted OpenSSH keys (all PPK files)
+- ✅ SSH configuration (OpenSSH format)
+- ✅ Tabby terminal config
+- ✅ Bitwarden vault export
+- ✅ MANIFEST.json metadata
+- ✅ README.txt with instructions
+
+**Step 2: Transfer ZIP to Linux**
+```bash
+# Copy via SCP, USB, or any method
+scp putty-migration-export-*.zip user@linux-host:~/
+```
+
+**Step 3: Import on Linux**
+```bash
+# Interactive TUI (auto-detects ZIP)
+putty-migrate
+
+# CLI - import everything
+putty-migrate import-all export.zip --all
+
+# CLI - selective import
+putty-migrate import-all export.zip --ssh-keys --ssh-config
+
+# With conflict handling
+putty-migrate import-all export.zip --ssh-keys --conflict rename
+```
+
+**Import Options:**
+- **SSH Keys** → `~/.ssh/` (with conflict handling: rename/overwrite/skip)
+- **SSH Config** → `~/.ssh/config` (with automatic backup)
+- **Bitwarden** → Auto-import or manual instructions
 
 ---
 

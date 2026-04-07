@@ -49,6 +49,14 @@ class MainMenuScreen(Screen):
             with Vertical():
                 yield Button("🔑 Convert PPK Keys", id="convert", variant="primary")
                 yield Button("📤 Export Sessions", id="export", variant="primary")
+                
+                # v1.1.1: Platform-specific export/import buttons
+                from ...utils.platform import is_windows
+                if is_windows():
+                    yield Button("📦 Export All to ZIP", id="export-all", variant="primary")
+                else:
+                    yield Button("📥 Import All from ZIP", id="import-all", variant="primary")
+                
                 yield Button("⚙️  Settings", id="settings")
                 yield Button("ℹ️  About", id="about")
                 yield Button("❌ Exit", id="exit", variant="error")
@@ -101,6 +109,14 @@ class MainMenuScreen(Screen):
             # Navigate to Export Screen
             from .export import ExportScreen
             self.app.push_screen(ExportScreen())
+        elif button_id == "export-all":
+            # v1.1.1: Navigate to Export All screen (Windows)
+            from .export_all_screen import ExportAllScreen
+            self.app.push_screen(ExportAllScreen())
+        elif button_id == "import-all":
+            # v1.1.1: Navigate to Import All screen (Linux)
+            from .import_all_screen import ImportAllScreen
+            self.app.push_screen(ImportAllScreen())
         elif button_id == "settings":
             # Navigate to Install/Settings screen
             from .install import InstallScreen

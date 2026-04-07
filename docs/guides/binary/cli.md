@@ -488,6 +488,260 @@ Host dev-server
 
 ---
 
+## 📦 export-all - Export All to ZIP (v1.1.1)
+
+### Windows Only
+
+Create complete migration package with all PuTTY data in one command.
+
+### Basic Usage
+
+```bash
+# Auto-generated filename (putty-migration-export-YYYYMMDD-HHMMSS.zip)
+putty-migrate export-all
+
+# Custom output file
+putty-migrate export-all -o my-export.zip
+```
+
+### Options
+
+```bash
+-o, --output FILE        Output ZIP file (default: auto-generated timestamp)
+--password-file FILE     Password file for encrypted PPKs (default: ./ppk_keys/passwords.txt)
+--dry-run                Preview without creating ZIP
+-v, --verbose            Verbose output with detailed progress
+-h, --help               Show help message
+```
+
+### What Gets Exported
+
+The ZIP package contains:
+- ✅ **openssh_keys/** - All PPK files converted to OpenSSH format
+- ✅ **ssh-config** - OpenSSH configuration for all sessions
+- ✅ **tabby-config.json** - Tabby terminal configuration
+- ✅ **bitwarden-export.json** - Bitwarden vault export (Type 5)
+- ✅ **MANIFEST.json** - Metadata (counts, encryption status, timestamps)
+- ✅ **README.txt** - Import instructions for Linux
+
+### Examples
+
+```bash
+# Basic export with auto-generated filename
+putty-migrate export-all
+
+# Output: putty-migration-export-20260407-170000.zip
+
+# Custom output location
+putty-migrate export-all -o C:\Backups\putty-full-export.zip
+
+# With password file for encrypted PPKs
+putty-migrate export-all --password-file C:\secure\passwords.txt
+
+# Dry run (preview without creating ZIP)
+putty-migrate export-all --dry-run
+
+# Verbose output (see each step)
+putty-migrate export-all -v
+```
+
+### Output
+
+```
+📦 Creating Export Package...
+
+✅ Loaded 3 password(s)
+✅ Converted 15 PPK keys (3 encrypted, 12 unencrypted)
+✅ Generated SSH Config (18 sessions)
+✅ Generated Tabby config (18 hosts)
+✅ Generated Bitwarden export (18 items)
+✅ Created ZIP archive
+
+══════════════════════════════════════════════════════════
+  EXPORT COMPLETE
+══════════════════════════════════════════════════════════
+  ZIP File: putty-migration-export-20260407-170000.zip
+  Size: 45.2 KB
+  
+  Contents:
+  • 15 SSH keys (3 encrypted, 12 unencrypted)
+  • 18 session configurations
+  • Tabby terminal config
+  • Bitwarden vault export
+══════════════════════════════════════════════════════════
+
+📋 Next Steps:
+  1. Copy ZIP to your Linux machine:
+     scp putty-migration-export-*.zip user@linux:~/
+  
+  2. Import on Linux:
+     putty-migrate import-all export.zip --all
+```
+
+---
+
+## 📥 import-all - Import from ZIP (v1.1.1)
+
+### Linux Only
+
+Import Windows export package with selective component import.
+
+### Basic Usage
+
+```bash
+# Import everything
+putty-migrate import-all export.zip --all
+
+# Selective import
+putty-migrate import-all export.zip --ssh-keys --ssh-config
+```
+
+### Options
+
+```bash
+ZIP_FILE                 Input ZIP file (required)
+--ssh-keys               Import SSH keys to ~/.ssh
+--ssh-config             Import SSH config to ~/.ssh/config
+--bitwarden              Handle Bitwarden export
+--all                    Import everything (implies all above)
+--conflict MODE          Conflict handling: rename|overwrite|skip (default: rename)
+--bw-auto-import         Automatically run 'bw import' command (requires BW_SESSION)
+--dry-run                Preview without importing
+-v, --verbose            Verbose output
+-h, --help               Show help message
+```
+
+### What Can Be Imported
+
+Choose any combination:
+- ✅ **SSH Keys** → `~/.ssh/` (with conflict handling)
+- ✅ **SSH Config** → `~/.ssh/config` (with backup)
+- ✅ **Bitwarden** → Auto-import or manual instructions
+
+### Examples
+
+```bash
+# Import everything with default settings
+putty-migrate import-all putty-migration-export-20260407-170000.zip --all
+
+# Import only SSH keys (rename conflicts)
+putty-migrate import-all export.zip --ssh-keys --conflict rename
+
+# Import only SSH config
+putty-migrate import-all export.zip --ssh-config
+
+# Import SSH keys + config (skip conflicts)
+putty-migrate import-all export.zip --ssh-keys --ssh-config --conflict skip
+
+# Import with Bitwarden auto-import (requires BW_SESSION)
+export BW_SESSION=$(bw unlock --raw)
+putty-migrate import-all export.zip --all --bw-auto-import
+
+# Dry run (preview)
+putty-migrate import-all export.zip --all --dry-run
+
+# Verbose output
+putty-migrate import-all export.zip --all -v
+```
+
+### Conflict Modes (SSH Keys)
+
+#### Rename (Default)
+```bash
+putty-migrate import-all export.zip --ssh-keys --conflict rename
+```
+- Existing: `unraid31`, `unraid31.pub`
+- Imported as: `unraid31.2`, `unraid31.2.pub`
+- **Safe:** Original files preserved
+
+#### Overwrite
+```bash
+putty-migrate import-all export.zip --ssh-keys --conflict overwrite
+```
+- Existing files backed up as `.bak`
+- Imported files replace originals
+- **Careful:** Review backups before deleting
+
+#### Skip
+```bash
+putty-migrate import-all export.zip --ssh-keys --conflict skip
+```
+- Existing files untouched
+- Only new keys imported
+- **Safe:** No overwrites
+
+### Bitwarden Import
+
+#### Manual Import (Default)
+```bash
+putty-migrate import-all export.zip --bitwarden
+```
+- Copies `bitwarden-export.json` to current directory
+- Shows manual import instructions:
+  ```
+  Run:
+    bw import bitwardenjson bitwarden-export.json
+    bw sync
+  ```
+
+#### Auto-Import (Requires BW_SESSION)
+```bash
+# 1. Unlock Bitwarden first
+export BW_SESSION=$(bw unlock --raw)
+
+# 2. Import with auto-import flag
+putty-migrate import-all export.zip --bitwarden --bw-auto-import
+```
+- Automatically runs `bw import`
+- Automatically runs `bw sync`
+- Shows success/failure status
+
+### Output
+
+```
+📥 Importing from ZIP...
+
+✅ Extracted package
+✅ Validated structure (v1.1.1, 15 keys, 18 sessions)
+
+Import Options:
+  • SSH Keys (rename mode)
+  • SSH Config
+  • Bitwarden (manual)
+
+🔑 Importing SSH keys...
+   Copied 15 key pairs to ~/.ssh/
+   3 renamed (conflicts)
+
+⚙️  Importing SSH config...
+   Added 18 entries to ~/.ssh/config
+   Backup: ~/.ssh/config.bak
+
+🔐 Bitwarden export ready...
+   File: bitwarden-export.json
+
+══════════════════════════════════════════════════════════
+  IMPORT COMPLETE
+══════════════════════════════════════════════════════════
+
+SSH Keys:
+  • 15 key pairs imported to ~/.ssh/
+  • 3 renamed (conflicts)
+  • Permissions: 600 (private), 644 (public)
+
+SSH Config:
+  • 18 entries added
+  • Backup: ~/.ssh/config.bak
+
+Bitwarden:
+  • File ready: bitwarden-export.json
+  • Run: bw import bitwardenjson bitwarden-export.json
+         bw sync
+══════════════════════════════════════════════════════════
+```
+
+---
+
 ## 🤖 Automation Examples
 
 ### Batch Processing Script (Bash)

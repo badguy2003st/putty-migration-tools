@@ -599,6 +599,9 @@ def find_next_available_name(base_path: Path) -> Path:
     If the file exists, tries appending .1, .2, .3, etc. until
     finding an available name.
     
+    For public keys (.pub), the number is inserted BEFORE the .pub extension
+    to maintain SSH compatibility (key.2.pub instead of key.pub.2).
+    
     Args:
         base_path: Original file path
         
@@ -608,14 +611,28 @@ def find_next_available_name(base_path: Path) -> Path:
     Example:
         find_next_available_name(Path("~/.ssh/oracle"))
         # If oracle exists → returns ~/.ssh/oracle.1
-        # If oracle.1 exists → returns ~/.ssh/oracle.2
+        
+        find_next_available_name(Path("~/.ssh/oracle.pub"))
+        # If oracle.pub exists → returns ~/.ssh/oracle.1.pub (NOT oracle.pub.1!)
     """
     if not base_path.exists():
         return base_path
     
+    # Check if this is a public key file
+    is_pub_key = base_path.name.endswith('.pub')
+    
     counter = 1
     while True:
-        new_path = base_path.parent / f"{base_path.name}.{counter}"
+        if is_pub_key:
+            # Insert number BEFORE .pub extension
+            # unraid31.pub → unraid31.1.pub → unraid31.2.pub
+            base_name = base_path.name[:-4]  # Remove .pub
+            new_path = base_path.parent / f"{base_name}.{counter}.pub"
+        else:
+            # Normal file: append number at end
+            # unraid31 → unraid31.1 → unraid31.2
+            new_path = base_path.parent / f"{base_path.name}.{counter}"
+        
         if not new_path.exists():
             return new_path
         counter += 1

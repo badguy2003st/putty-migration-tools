@@ -224,16 +224,6 @@ async def run_convert(args: argparse.Namespace) -> int:
         progress_callback=lambda cur, tot, name: print(f"  [{cur}/{tot}] {name}"),
         keep_encryption=keep_enc  # v1.1.0: Re-encryption support
     )
-    
-    # Show results
-    successful = [r for r in results if r.success]
-    failed = [r for r in results if not r.success]
-    
-    print()
-    print("=" * 60)
-    print("  CONVERSION SUMMARY")
-    print("=" * 60)
-    
     if successful:
         print(f"✅ Successful: {len(successful)}/{len(results)}")
         if args.verbose:

@@ -51,6 +51,8 @@ def create_global_parser() -> argparse.ArgumentParser:
     from .cli.export_bitwarden import create_parser as bitwarden_parser
     from .cli.export_tabby import create_parser as tabby_parser
     from .cli.export_ssh_config import create_parser as ssh_parser
+    from .cli.export_all import create_parser as export_all_parser
+    from .cli.import_all import create_parser as import_all_parser
     
     # Add subcommands (using parent parsers to inherit arguments)
     subparsers.add_parser(
@@ -79,6 +81,21 @@ def create_global_parser() -> argparse.ArgumentParser:
         parents=[ssh_parser()],
         add_help=False,
         help='Generate SSH config file'
+    )
+    
+    # v1.1.1: Complete export/import workflow
+    subparsers.add_parser(
+        'export-all',
+        parents=[export_all_parser()],
+        add_help=False,
+        help='Export all to ZIP (Windows)'
+    )
+    
+    subparsers.add_parser(
+        'import-all',
+        parents=[import_all_parser()],
+        add_help=False,
+        help='Import from ZIP (Linux)'
     )
     
     return parser
@@ -180,6 +197,14 @@ def main() -> int:
                 return ssh_main()
             finally:
                 sys.argv = original_argv
+        
+        elif args.command == 'export-all':
+            from .cli.export_all import main as export_all_main
+            return export_all_main(sys.argv[2:])
+        
+        elif args.command == 'import-all':
+            from .cli.import_all import main as import_all_main
+            return import_all_main(sys.argv[2:])
         
         else:
             # Should never happen due to argparse validation

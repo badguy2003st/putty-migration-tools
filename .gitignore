@@ -72,3 +72,7 @@ CLEANUP_*.md
 TEST-SCRIPT-README.md
 test-cli-full.ps1
 TESTING.md
+
+# v1.1.1: Export packages
+putty-migration-export-*.zip
+.export_temp/

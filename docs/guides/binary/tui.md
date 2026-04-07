@@ -30,6 +30,7 @@ putty-migrate
 
 Upon launch, you'll see the main menu with these options:
 
+### Windows (v1.1.1)
 ```
 🔧 PuTTY Migration Tools
 
@@ -39,7 +40,23 @@ Upon launch, you'll see the main menu with these options:
 
 1. 🔑 Convert PPK Keys
 2. 📤 Export Sessions
-3. 📋 Export to SSH Config
+3. 📦 Export All to ZIP        ← NEW in v1.1.1!
+4. ⚙️  Settings
+5. ℹ️  About
+6. ❌ Exit
+```
+
+### Linux (v1.1.1)
+```
+🔧 PuTTY Migration Tools
+
+✅ Textual UI available
+✅ Linux/macOS platform
+✅ Found X PuTTY session(s)
+
+1. 🔑 Convert PPK Keys
+2. 📤 Export Sessions
+3. 📥 Import All from ZIP      ← NEW in v1.1.1!
 4. ⚙️  Settings
 5. ℹ️  About
 6. ❌ Exit

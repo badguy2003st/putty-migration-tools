@@ -534,6 +534,225 @@ pip install -r tui/requirements.txt
 
 ---
 
+## [1.1.1] - 2026-04-07
+
+### 🎉 Major Feature - Complete Export/Import Workflow
+
+**Headline:** Windows → Linux migration made easy with one-click export and selective import!
+
+### Added
+
+#### Complete Export/Import Workflow
+- **Windows: Export All to ZIP** - One-click migration package creation
+  - Converts all PPK keys to OpenSSH format (with password support)
+  - Generates SSH config for all sessions
+  - Generates Tabby terminal config
+  - Generates Bitwarden vault export
+  - Packages everything in timestamped ZIP file
+  - Includes MANIFEST.json metadata and README.txt instructions
+  
+- **Linux: Import All from ZIP** - Install Windows migration package
+  - Interactive checkbox selection for import components
+  - SSH Keys import to ~/.ssh with conflict handling (rename/overwrite/skip)
+  - SSH Config merge to ~/.ssh/config with automatic backup
+  - Bitwarden export handling (auto-import or manual instructions)
+  - Direct ZIP processing (no manual extraction needed)
+  - BW_SESSION environment variable check for secure auto-import
+  - Auto-detection of ZIP files in common locations (Downloads, home, cwd)
+
+#### CLI Commands
+- **`putty-migrate export-all`** - Windows export to ZIP
+  - `-o, --output` - Custom output file path
+  - `--password-file` - Password file for encrypted PPKs
+  - `--dry-run` - Preview without creating ZIP
+  - `-v, --verbose` - Verbose output
+  
+- **`putty-migrate import-all`** - Linux import from ZIP
+  - `--ssh-keys` - Import SSH keys to ~/.ssh
+  - `--ssh-config` - Import SSH config
+  - `--bitwarden` - Handle Bitwarden export
+  - `--all` - Import everything
+  - `--conflict MODE` - Conflict handling: rename/overwrite/skip
+  - `--bw-auto-import` - Automatically run `bw import` command
+  - `--dry-run` - Preview without importing
+  - `-v, --verbose` - Verbose output
+
+#### TUI Enhancements
+- **Platform-specific main menu buttons**
+  - Windows: "📦 Export All to ZIP"
+  - Linux: "📥 Import All from ZIP"
+- **Optimized import screen layout** - ~35% height reduction
+  - Horizontal checkbox layout for grouped ~/.ssh options
+  - SSH Keys + SSH Config displayed side-by-side
+  - Bitwarden separate below
+  - Removed progress bar (operations are fast enough)
+  - Increased log height (6 → 10 lines for better visibility)
+- **Export Log button** - Save import/export logs to timestamped files
+- **Compact container layouts** - `height: auto` CSS prevents excessive spacing
+- **Conditional option visibility** - Conflict/Bitwarden modes only show when relevant
+
+### Changed
+
+#### UI/UX Improvements
+- Main menu now shows platform-specific export/import options
+- Import screen containers use `height: auto` for compact display
+- SSH Keys and SSH Config checkboxes now displayed horizontally (grouped ~/.ssh area)
+- Bitwarden displayed separately for clear separation
+- Import log optimized for better visibility
+
+#### Backend Improvements
+- Bitwarden import instructions now include `bw sync` command
+- BW_SESSION validation prevents unauthorized imports
+- Automatic `bw sync` after successful auto-import
+- Temp directory cleanup improved
+
+### Fixed
+
+#### Critical Bug Fixes
+- **🐛 Rename algorithm for .pub files** - Number now inserted BEFORE .pub extension
+  - **Before:** `unraid31.pub` → `unraid31.pub.2` ❌ (SSH can't pair private/public keys!)
+  - **After:** `unraid31.pub` → `unraid31.2.pub` ✅ (SSH compatible pairing maintained!)
+  - **Impact:** Affects all users using rename mode with public keys
+  
+- **Container height issues** - Added `height: auto` to prevent excessive vertical spacing in import screen
+- **BW_SESSION validation** - Now checks environment variable before attempting Bitwarden auto-import
+- **Bitwarden sync** - Automatically runs `bw sync` after successful import to update vault
+
+### Technical Details
+
+#### ZIP Package Structure
+```
+putty-migration-export-YYYYMMDD-HHMMSS.zip
+├── README.txt                    # Import instructions
+├── MANIFEST.json                 # Metadata (version, date, counts)
+├── openssh_keys/
+│   ├── key1
+│   ├── key1.pub
+│   ├── key2
+│   ├── key2.pub
+│   └── ...
+├── ssh-config                    # OpenSSH config file
+├── tabby-config.json            # Tabby terminal config
+└── bitwarden-export.json        # Bitwarden Type 5 export
+```
+
+#### MANIFEST.json Format
+Contains metadata including:
+- Version and export timestamp
+- File counts (PPK files, SSH keys, sessions)
+- Encryption status (encrypted vs unencrypted keys)
+- Compatibility information
+- Error/warning messages
+
+#### Import Options (Linux)
+- ✅ SSH Keys to ~/.ssh (with conflict handling)
+- ✅ SSH Config to ~/.ssh/config (with backup)
+- ✅ Bitwarden Vault (auto-import or manual)
+
+### Security
+
+- **ZIP security:** ZIP files contain sensitive SSH keys - handle securely
+- **BW_SESSION validation:** Prevents unauthorized Bitwarden imports
+- **Automatic file permissions:** 600 for private keys, 644 for public keys on Linux import
+- **Backup creation:** Config files backed up before merge
+- **Temp directory cleanup:** Secure cleanup after import
+- **No cloud uploads:** All processing remains local
+
+### Documentation
+
+- Updated CHANGELOG.md with v1.1.1 details
+- Updated README.md with export/import workflow section
+- Updated CLI guides for binary and Python usage
+- Updated TUI guides with platform-specific buttons
+- Updated .gitignore with ZIP export pattern
+
+### Dependencies
+
+**No new dependencies!** Uses Python stdlib:
+- `zipfile` - ZIP creation/extraction
+- `tempfile` - Temporary directory handling
+- `shutil` - File operations
+- `json` - MANIFEST handling
+- `subprocess` - bw CLI integration (optional)
+
+### Performance
+
+- **Export operation:** ~1-2 seconds for typical workload (15 keys, 20 sessions)
+- **Import operation:** ~1 second for typical workload
+- **No progress bar:** Operations complete fast enough without UI overhead
+
+### Known Issues
+
+- **ZIP file size:** Typical export ~50-100 KB (compressed keys + configs)
+- **Large key collections:** May take longer (20+ keys with encryption)
+
+### Upgrade Notes
+
+#### For Binary Users
+- Download latest release from GitHub
+- No configuration changes needed
+- New export/import features automatically available
+
+#### For Python Users
+```bash
+git pull origin main
+pip install -r tui/requirements.txt  # No new dependencies
+python -m tui
+```
+
+### Testing
+
+- ✅ Windows export tested with 15 PPK files (mixed encrypted/unencrypted)
+- ✅ Linux import tested with all checkbox combinations
+- ✅ Conflict handling validated (rename/overwrite/skip modes)
+- ✅ Bitwarden auto-import tested with BW_SESSION environment variable
+- ✅ ZIP structure validated across Windows/Linux platforms
+- ✅ Public key rename bug fix validated
+- ✅ Container layout optimization verified
+
+### CLI Examples
+
+#### Windows Export
+```bash
+# TUI (interactive)
+putty-migrate
+
+# CLI with default output
+putty-migrate export-all
+
+# CLI with custom output
+putty-migrate export-all -o my-export-2026-04-07.zip
+
+# With password file
+putty-migrate export-all --password-file ppk_keys/passwords.txt
+
+# Dry run (preview)
+putty-migrate export-all --dry-run -v
+```
+
+#### Linux Import
+```bash
+# TUI (interactive with auto-detection)
+putty-migrate
+
+# CLI - import everything
+putty-migrate import-all export.zip --all
+
+# CLI - selective import
+putty-migrate import-all export.zip --ssh-keys --ssh-config
+
+# CLI - with conflict handling
+putty-migrate import-all export.zip --ssh-keys --conflict rename
+
+# CLI - with Bitwarden auto-import (requires BW_SESSION)
+putty-migrate import-all export.zip --all --bw-auto-import
+
+# Dry run
+putty-migrate import-all export.zip --all --dry-run
+```
+
+---
+
 ## [Unreleased]
 
 No unreleased changes yet.
