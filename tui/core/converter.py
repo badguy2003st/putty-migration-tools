@@ -22,6 +22,9 @@ except ImportError:
 # Import new unified PPK parser (v1.0.4+)
 from .ppk_parser import decrypt_ppk, detect_ppk_info, get_ppk_version
 
+# Import platform detection for line ending handling
+from ..utils.platform import get_platform
+
 
 @dataclass
 class ConversionResult:
@@ -72,6 +75,58 @@ def normalize_key_name(name: str) -> str:
         'my-server-key'
     """
     return name.replace(" ", "-")
+
+
+def get_line_ending() -> str:
+    """
+    Get the appropriate line ending for the current platform.
+    
+    Returns:
+        "\\r\\n" for Windows, "\\n" for Linux
+        
+    Example:
+        ending = get_line_ending()
+        # On Windows: "\\r\\n"
+        # On Linux: "\\n"
+    """
+    platform_type = get_platform()
+    if platform_type == "windows":
+        return "\r\n"
+    else:
+        return "\n"
+
+
+def write_key_file(file_path: Path, content: str, add_trailing_newline: bool = True) -> None:
+    """
+    Write a key file with platform-appropriate line endings.
+    
+    This ensures that SSH keys are written with the correct line endings
+    for the target platform (CRLF on Windows, LF on Linux).
+    
+    Args:
+        file_path: Path to the file to write
+        content: Content to write (line endings will be normalized)
+        add_trailing_newline: Whether to add a trailing newline (default: True)
+        
+    Example:
+        write_key_file(Path("~/.ssh/id_rsa"), openssh_key_content)
+    """
+    line_ending = get_line_ending()
+    
+    # Normalize existing line endings to the platform-appropriate format
+    # First normalize all line endings to \n, then convert to platform format
+    normalized_content = content.replace('\r\n', '\n').replace('\r', '\n')
+    
+    # Convert to platform-appropriate line endings
+    if line_ending != '\n':
+        normalized_content = normalized_content.replace('\n', line_ending)
+    
+    # Add trailing newline if requested
+    if add_trailing_newline and not normalized_content.endswith(line_ending):
+        normalized_content += line_ending
+    
+    # Write the file
+    file_path.write_text(normalized_content, encoding='utf-8')
 
 
 def detect_key_type(ppk_content: str) -> Optional[str]:
@@ -399,10 +454,10 @@ async def convert_ppk_to_openssh(
         if progress_callback:
             progress_callback(80)
         
-        # Write private key file
+        # Write private key file with platform-appropriate line endings
         await loop.run_in_executor(
             None,
-            lambda: output_file.write_text(openssh_key, encoding='utf-8')
+            lambda: write_key_file(output_file, openssh_key, add_trailing_newline=True)
         )
         
         # Set secure permissions (600 - owner read/write only)
@@ -414,7 +469,7 @@ async def convert_ppk_to_openssh(
             pub_file = Path(str(output_file) + '.pub')
             await loop.run_in_executor(
                 None,
-                lambda: pub_file.write_text(public_key_content + "\n", encoding='utf-8')
+                lambda: write_key_file(pub_file, public_key_content, add_trailing_newline=True)
             )
             # Set public key permissions (644)
             os.chmod(pub_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
@@ -500,10 +555,10 @@ async def convert_ppk_to_public_key(
         if progress_callback:
             progress_callback(80)
         
-        # Write public key to file
+        # Write public key to file with platform-appropriate line endings
         await loop.run_in_executor(
             None,
-            lambda: output_file.write_text(public_key + "\n", encoding='utf-8')
+            lambda: write_key_file(output_file, public_key, add_trailing_newline=True)
         )
         
         # Set public key permissions (644)

@@ -753,6 +753,19 @@ putty-migrate import-all export.zip --all --dry-run
 
 ---
 
+## [1.1.2] - 2026-04-16
+
+### 🔧 Fixed - Platform-Specific Line Endings
+
+#### Key Export Format Fix
+- **Fixed**: Keys are now exported in the correct format for the current system
+  - **Windows**: CRLF (`\r\n`) line endings
+  - **Linux**: LF (`\n`) line endings
+- **Impact**: Resolves issues with key files having incorrect line endings when exported on Windows
+- **Technical**: Uses platform-aware line ending conversion based on `sys.platform`
+
+---
+
 ## [Unreleased]
 
 No unreleased changes yet.

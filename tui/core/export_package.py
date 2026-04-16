@@ -26,6 +26,7 @@ from .ssh_config import generate_ssh_config_content
 from .tabby_export import generate_tabby_config
 from .bitwarden_export import generate_bitwarden_export
 from .file_operations import load_password_file
+from ..utils.platform import get_platform
 
 
 @dataclass
@@ -288,11 +289,19 @@ def generate_manifest(
     if failed:
         warnings.append(f"{len(failed)} keys could not be converted")
     
+    # Detect current platform dynamically
+    current_platform = get_platform()
+    platform_display = {
+        "windows": "Windows",
+        "linux": "Linux",
+        "unknown": "Unknown"
+    }.get(current_platform, "Unknown")
+    
     manifest = {
         "version": "1.1.1",
         "format_version": 1,
         "exported_at": datetime.now(timezone.utc).isoformat(),
-        "platform": "Windows",
+        "platform": platform_display,
         "computer_name": platform.node(),
         "user": platform.node(),  # Safe fallback
         
@@ -352,11 +361,11 @@ def generate_readme_txt(manifest: Dict[str, Any]) -> str:
         date_str = exported_at
     
     readme = f"""PuTTY Migration Tools - Export Package
-=======================================
+ =======================================
 
-Created: {date_str}
-Platform: Windows
-Version: 1.1.1
+ Created: {date_str}
+ Platform: {platform_display}
+ Version: 1.1.1
 
 Contents
 --------
