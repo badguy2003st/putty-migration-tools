@@ -398,7 +398,22 @@ def generate_ssh_config_content(sessions: List[PuttySession]) -> str:
         lines.append(entry.to_ssh_config())
         lines.append("")
     
-    return "\n".join(lines)
+    # Join with \n first, then convert to platform-appropriate line endings
+    content = "\n".join(lines)
+    
+    # Normalize line endings to platform-appropriate format
+    platform_type = get_platform()
+    if platform_type == "windows":
+        line_ending = "\r\n"
+    else:
+        line_ending = "\n"
+    
+    # Normalize existing line endings to \n, then convert to platform format
+    normalized_content = content.replace('\r\n', '\n').replace('\r', '\n')
+    if line_ending != '\n':
+        normalized_content = normalized_content.replace('\n', line_ending)
+    
+    return normalized_content
 
 
 def write_ssh_config(
@@ -428,13 +443,20 @@ def write_ssh_config(
     # Write new config
     print(f"📝 Writing SSH config to: {output_file}")
     
+    # Get platform-appropriate line ending
+    platform_type = get_platform()
+    if platform_type == "windows":
+        line_ending = "\r\n"
+    else:
+        line_ending = "\n"
+    
     with open(output_file, 'a') as f:
-        f.write("\n# ==========================================\n")
-        f.write("# PuTTY Sessions (converted)\n")
-        f.write("# ==========================================\n\n")
+        f.write(line_ending + "# ==========================================" + line_ending)
+        f.write("# PuTTY Sessions (converted)" + line_ending)
+        f.write("# ==========================================" + line_ending + line_ending)
         
         for entry in entries:
             f.write(entry.to_ssh_config())
-            f.write("\n\n")
+            f.write(line_ending + line_ending)
     
     print(f"✅ SSH config written successfully")

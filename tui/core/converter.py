@@ -761,11 +761,15 @@ async def copy_key_to_ssh(
             # Find next available name
             dest_path = find_next_available_name(dest_path)
             
-            # Copy to new name
+            # Read source content and write with platform-appropriate line endings
             loop = asyncio.get_event_loop()
+            content = await loop.run_in_executor(
+                None,
+                lambda: source_file.read_text(encoding='utf-8')
+            )
             await loop.run_in_executor(
                 None,
-                lambda: shutil.copy2(source_file, dest_path)
+                lambda: write_key_file(dest_path, content)
             )
             
             # Set appropriate permissions
@@ -791,10 +795,14 @@ async def copy_key_to_ssh(
                 lambda: shutil.copy2(dest_path, backup_path)
             )
             
-            # Now overwrite
+            # Read source content and write with platform-appropriate line endings
+            content = await loop.run_in_executor(
+                None,
+                lambda: source_file.read_text(encoding='utf-8')
+            )
             await loop.run_in_executor(
                 None,
-                lambda: shutil.copy2(source_file, dest_path)
+                lambda: write_key_file(dest_path, content)
             )
             
             # Set appropriate permissions
@@ -812,11 +820,15 @@ async def copy_key_to_ssh(
             }
     
     else:
-        # No conflict - simple copy
+        # No conflict - read source content and write with platform-appropriate line endings
         loop = asyncio.get_event_loop()
+        content = await loop.run_in_executor(
+            None,
+            lambda: source_file.read_text(encoding='utf-8')
+        )
         await loop.run_in_executor(
             None,
-            lambda: shutil.copy2(source_file, dest_path)
+            lambda: write_key_file(dest_path, content)
         )
         
         # Set appropriate permissions

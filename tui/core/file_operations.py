@@ -14,6 +14,9 @@ import os
 from pathlib import Path
 from typing import Optional, List
 
+# Import platform detection for line ending handling
+from ..utils.platform import get_platform
+
 
 def ensure_ppk_directory(ppk_dir: Path = Path("./ppk_keys")) -> dict:
     """
@@ -56,17 +59,20 @@ Empty lines are ignored
 All characters including # are part of the password
 
 
-
-
-
-
-
-
-
-
-
 """
-        passwords_file.write_text(template, encoding='utf-8')
+        # Normalize line endings to platform-appropriate format
+        platform_type = get_platform()
+        if platform_type == "windows":
+            line_ending = "\r\n"
+        else:
+            line_ending = "\n"
+        
+        # Normalize existing line endings to \n, then convert to platform format
+        normalized_template = template.replace('\r\n', '\n').replace('\r', '\n')
+        if line_ending != '\n':
+            normalized_template = normalized_template.replace('\n', line_ending)
+        
+        passwords_file.write_text(normalized_template, encoding='utf-8')
         created_passwords = True
     
     if created_dir or created_passwords:
@@ -185,6 +191,18 @@ def write_file_atomic(
         backup_path = target_path.with_suffix(target_path.suffix + '.backup')
         shutil.copy2(target_path, backup_path)
     
+    # Normalize line endings to platform-appropriate format
+    platform_type = get_platform()
+    if platform_type == "windows":
+        line_ending = "\r\n"
+    else:
+        line_ending = "\n"
+    
+    # Normalize existing line endings to \n, then convert to platform format
+    normalized_content = content.replace('\r\n', '\n').replace('\r', '\n')
+    if line_ending != '\n':
+        normalized_content = normalized_content.replace('\n', line_ending)
+    
     # Write to temp file first (in same directory for atomic rename)
     with tempfile.NamedTemporaryFile(
         mode='w',
@@ -194,7 +212,7 @@ def write_file_atomic(
         suffix=target_path.suffix,
         encoding='utf-8'
     ) as tmp:
-        tmp.write(content)
+        tmp.write(normalized_content)
         tmp_path = Path(tmp.name)
     
     # Set permissions if specified
