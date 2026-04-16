@@ -352,6 +352,7 @@ def generate_readme_txt(manifest: Dict[str, Any]) -> str:
     """
     counts = manifest.get('counts', {})
     exported_at = manifest.get('exported_at', 'Unknown')
+    platform_display = manifest.get('platform', 'Unknown')
     
     # Format date (remove timezone info for readability)
     try:

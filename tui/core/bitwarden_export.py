@@ -4,7 +4,7 @@ Bitwarden Export Module - Generate Bitwarden-compatible SSH Key exports.
 This module converts PuTTY sessions with SSH keys to Bitwarden Type 5 (SSH Key)
 items for import into Bitwarden vault and use with Bitwarden SSH Agent.
 
-Strategy: puttykeys (PPK parsing) → cryptography (clean OpenSSH) → Bitwarden Type 5
+Strategy: Custom PPK parser → cryptography (clean OpenSSH) → Bitwarden Type 5
 """
 
 import json
@@ -16,6 +16,11 @@ from datetime import datetime
 
 from .registry import PuttySession
 import struct
+
+try:
+    import puttykeys
+except ImportError:
+    puttykeys = None
 
 
 def ensure_clean_openssh_format(openssh_key: str) -> str:
@@ -191,7 +196,6 @@ def extract_public_key_from_private(private_key_content: str) -> str:
     try:
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.backends import default_backend
-        import puttykeys
         
         key_bytes = private_key_content.encode('utf-8')
         private_key = None
@@ -212,15 +216,16 @@ def extract_public_key_from_private(private_key_content: str) -> str:
                     backend=default_backend()
                 )
             except Exception:
-                # Cryptography failed - try puttykeys' public key extraction
-                # (Works even with malformed OpenSSH output from puttykeys)
-                try:
-                    # puttykeys can extract public key from its own output
-                    public_key_bytes = puttykeys.PublicKey.from_string(private_key_content)
-                    if public_key_bytes:
-                        return public_key_bytes.decode('utf-8').strip()
-                except Exception:
-                    pass
+                # Cryptography failed - try puttykeys' public key extraction (if available)
+                # (Works even with malformed OpenSSH output from legacy puttykeys)
+                if puttykeys is not None:
+                    try:
+                        # puttykeys can extract public key from its own output
+                        public_key_bytes = puttykeys.PublicKey.from_string(private_key_content)
+                        if public_key_bytes:
+                            return public_key_bytes.decode('utf-8').strip()
+                    except Exception:
+                        pass
                 
                 raise ValueError("Could not parse private key with any method")
         
@@ -440,7 +445,6 @@ def generate_bitwarden_export(
         Path("bitwarden-export.json").write_text(json_export)
     """
     from .auth_detection import detect_auth_method
-    import puttykeys
     
     openssh_keys_dir = Path(openssh_keys_dir).resolve()
     

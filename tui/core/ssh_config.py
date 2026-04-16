@@ -15,6 +15,7 @@ from .registry import PuttySession, read_putty_sessions, split_user_at_host
 from .auth_detection import detect_auth_method, AuthInfo, format_auth_info
 from .key_registry import KeyRegistry, KeyInfo
 from .fuzzy_match import fuzzy_match_key, get_best_match, interactive_match_selection
+from ..utils.platform import get_platform
 
 
 @dataclass
