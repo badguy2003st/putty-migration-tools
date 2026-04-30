@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.3] - 2026-04-30
+
+### Removed
+
+- Removed all vestigial `puttykeys` library references from active code
+  - Removed conditional `import puttykeys` from `converter.py` and `bitwarden_export.py`
+  - Removed `check_puttykeys_available()` function from `converter.py`
+  - Removed puttykeys availability check gate from `conversion.py` UI screen that blocked conversion when puttykeys was not installed
+  - Removed legacy `puttykeys.PublicKey.from_string()` fallback from `bitwarden_export.py`
+
+### Fixed
+
+- Fixed PPK conversion failing on Linux when `puttykeys` library was not installed — the native PPK parser (introduced in v1.1.0) now handles all conversions without any external dependency check
+- Fixed misleading "puttykeys library not found" error message in the TUI conversion screen
+
+### Changed
+
+- Updated outdated docstrings and comments in `converter.py`, `bitwarden_export.py`, `ppk_parser.py`, and `ppk_v2_crypto.py` to accurately reference the native PPK implementation instead of the removed `puttykeys` library
+
+---
+
 ## [1.0.0] - 2026-03-28
 
 ### 🎉 Initial Release - Production Ready

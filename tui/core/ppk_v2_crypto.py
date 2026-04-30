@@ -100,7 +100,7 @@ def derive_key_ppk_v2(password: str, cipher_type: str) -> bytes:
     PPK v2 uses a simple SHA-1 sequence to derive the AES key.
     The IV is fixed at 16 zero bytes (not derived!).
     
-    Based on PuTTY source code and puttykeys library:
+    Based on PuTTY source code:
     - Key derivation: SHA1(\x00\x00\x00\x00 || password) || SHA1(\x00\x00\x00\x01 || password)
     - IV: Always 16 zero bytes
     

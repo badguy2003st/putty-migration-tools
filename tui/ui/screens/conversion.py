@@ -309,19 +309,6 @@ class ConversionScreen(Screen):
     
     async def _start_conversion(self) -> None:
         """Start the conversion process - launches worker for async operations."""
-        from ...core.converter import check_puttykeys_available
-        
-        # Check if puttykeys is available
-        if not await check_puttykeys_available():
-            self.app.notify(
-                "puttykeys library not found!\n\n"
-                "Please install it using:\n"
-                "pip install puttykeys",
-                title="Missing Dependency",
-                severity="error"
-            )
-            return
-        
         # Get selected format
         radio_set = self.query_one("#format-selection", RadioSet)
         selected_index = radio_set.pressed_index

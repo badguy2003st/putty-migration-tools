@@ -1,9 +1,9 @@
 """
 Unified PPK Parser - Support for both PPK v2 and v3 formats.
 
-This module provides a clean abstraction layer for PPK conversion:
-- PPK v2: Uses puttykeys library (existing)
-- PPK v3: Uses custom Argon2id implementation (new)
+This module provides a native Python implementation for PPK conversion:
+- PPK v2: Uses custom ppk_v2_crypto implementation
+- PPK v3: Uses custom Argon2id implementation
 
 Architecture is designed to be future-proof for v1.0.5 features:
 - Multi-password support (passwords parameter)
@@ -337,7 +337,7 @@ def _decrypt_ppk_v2(
     Handle PPK v2 format using custom ppk_v2_crypto implementation.
     
     v1.1.0: Custom implementation supports RSA, Ed25519, ECDSA.
-    No more puttykeys dependency!
+    Native implementation - no external dependencies.
     
     Smart password handling: If password is provided but key
     is unencrypted, automatically works without error.

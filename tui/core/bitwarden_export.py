@@ -17,12 +17,6 @@ from datetime import datetime
 from .registry import PuttySession
 import struct
 
-try:
-    import puttykeys
-except ImportError:
-    puttykeys = None
-
-
 def ensure_clean_openssh_format(openssh_key: str) -> str:
     """
     Ensure SSH key is in a Bitwarden-compatible format.
@@ -43,7 +37,7 @@ def ensure_clean_openssh_format(openssh_key: str) -> str:
         ValueError: If key cannot be validated
         
     Example:
-        clean_key = ensure_clean_openssh_format(puttykeys_output)
+        clean_key = ensure_clean_openssh_format(key_output)
     """
     try:
         from cryptography.hazmat.primitives import serialization
@@ -112,7 +106,7 @@ def extract_public_key_from_ppk(ppk_file: Path) -> str:
     Extract public key directly from PPK file.
     
     This is more reliable than extracting from converted OpenSSH keys,
-    as puttykeys sometimes produces malformed output.
+    as some conversion tools may produce malformed output.
     
     Args:
         ppk_file: Path to PPK file
@@ -178,7 +172,6 @@ def extract_public_key_from_private(private_key_content: str) -> str:
     the corresponding public key in OpenSSH format.
     
     Supports both OpenSSH and PEM format private keys.
-    Falls back to using puttykeys if cryptography fails (for malformed keys).
     
     Args:
         private_key_content: Private key string (OpenSSH or PEM format)
@@ -216,17 +209,6 @@ def extract_public_key_from_private(private_key_content: str) -> str:
                     backend=default_backend()
                 )
             except Exception:
-                # Cryptography failed - try puttykeys' public key extraction (if available)
-                # (Works even with malformed OpenSSH output from legacy puttykeys)
-                if puttykeys is not None:
-                    try:
-                        # puttykeys can extract public key from its own output
-                        public_key_bytes = puttykeys.PublicKey.from_string(private_key_content)
-                        if public_key_bytes:
-                            return public_key_bytes.decode('utf-8').strip()
-                    except Exception:
-                        pass
-                
                 raise ValueError("Could not parse private key with any method")
         
         if not private_key:

@@ -45,6 +45,7 @@ desktop.ini
 
 # Keys (NEVER commit!)
 ppk_keys/*.ppk
+ppk_keys/passwords.txt
 openssh_keys/*
 !ppk_keys/.gitkeep
 !openssh_keys/.gitkeep

@@ -1,7 +1,7 @@
 """
 PPK Converter Module - Async conversion of PPK keys to OpenSSH format.
 
-This module uses the pure Python 'puttykeys' library for converting
+This module uses a native Python implementation for converting
 PuTTY .ppk files to OpenSSH format. Works cross-platform without
 external tools.
 """
@@ -13,11 +13,6 @@ import shutil
 from pathlib import Path
 from typing import Callable, Optional, List, Literal, Dict, Any
 from dataclasses import dataclass
-
-try:
-    import puttykeys
-except ImportError:
-    puttykeys = None
 
 # Import new unified PPK parser (v1.0.4+)
 from .ppk_parser import decrypt_ppk, detect_ppk_info, get_ppk_version
@@ -149,10 +144,10 @@ def detect_key_type(ppk_content: str) -> Optional[str]:
 
 def interpret_conversion_error(error: Exception) -> str:
     """
-    Convert puttykeys error to user-friendly text.
+    Convert PPK conversion error to user-friendly text.
     
     Args:
-        error: Exception from puttykeys
+        error: Exception from PPK conversion
         
     Returns:
         User-friendly error message
@@ -180,20 +175,6 @@ def interpret_conversion_error(error: Exception) -> str:
     
     # Return original error if no pattern matches
     return str(error)
-
-
-async def check_puttykeys_available() -> bool:
-    """
-    Check if puttykeys library is available.
-    
-    Returns:
-        True if puttykeys is installed
-        
-    Example:
-        if not await check_puttykeys_available():
-            print("Please install puttykeys: pip install puttykeys")
-    """
-    return puttykeys is not None
 
 
 def encrypt_openssh_key(openssh_key: str, password: str) -> str:
@@ -247,7 +228,7 @@ def extract_public_key_from_openssh(openssh_private_key: str) -> str:
     Extract the public key from an OpenSSH private key.
     
     ⚠️ DEPRECATED: This function only works with true OpenSSH format keys.
-    It FAILS with PEM format keys (which puttykeys produces).
+    It FAILS with PEM format keys.
     
     Use extract_public_key_from_ppk() from bitwarden_export.py instead,
     which extracts directly from PPK files (more reliable).
@@ -298,7 +279,7 @@ async def convert_ppk_to_openssh(
     keep_encryption: bool = False
 ) -> ConversionResult:
     """
-    Convert a PPK file to OpenSSH format using puttykeys library.
+    Convert a PPK file to OpenSSH format using native PPK parser.
     
     Args:
         ppk_file: Input .ppk file path
@@ -311,7 +292,7 @@ async def convert_ppk_to_openssh(
         ConversionResult object with status and details
         
     Raises:
-        ConversionError: If puttykeys is not available or conversion fails
+        ConversionError: If conversion fails
         
     Example:
         # Unencrypted key
@@ -346,14 +327,6 @@ async def convert_ppk_to_openssh(
             success=False,
             ppk_file=str(ppk_file),
             error=f"PPK file not found: {ppk_file}"
-        )
-    
-    # Check puttykeys is available
-    if not await check_puttykeys_available():
-        return ConversionResult(
-            success=False,
-            ppk_file=str(ppk_file),
-            error="puttykeys library not found - please install: pip install puttykeys"
         )
     
     # Report initial progress
@@ -447,7 +420,7 @@ async def convert_ppk_to_openssh(
                     lambda: ensure_clean_openssh_format(openssh_key)
                 )
             except Exception as e:
-                # If re-serialization fails, fall back to original puttykeys output
+                # If re-serialization fails, use the original output
                 # This preserves backward compatibility
                 pass
         
