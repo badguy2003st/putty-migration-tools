@@ -133,6 +133,11 @@ def build_binary(version="1.0.0", debug=False):
     # Entry point
     cmd.append('putty_migrate.py')
     
+    # Add --jobs flag if NUITKA_JOBS environment variable is set
+    jobs = os.environ.get('NUITKA_JOBS', '')
+    if jobs:
+        cmd.append(f'--jobs={jobs}')
+    
     # Show command (for debugging)
     print("Nuitka command:")
     print("   " + " ".join(cmd))

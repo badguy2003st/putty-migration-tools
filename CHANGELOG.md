@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Updated outdated docstrings and comments in `converter.py`, `bitwarden_export.py`, `ppk_parser.py`, and `ppk_v2_crypto.py` to accurately reference the native PPK implementation instead of the removed `puttykeys` library
+- Enabled pip dependency caching in GitHub Actions for faster CI builds (Windows and Linux)
+- Added Nuitka artifact caching to avoid re-downloading MinGW compiler on Windows and reuse compiler cache on Linux
+- Enabled parallel Nuitka compilation with `--jobs=4` for faster binary builds on both platforms
+- Added `NUITKA_JOBS` environment variable support to `build.py` for configurable parallel compilation
 
 ---
 

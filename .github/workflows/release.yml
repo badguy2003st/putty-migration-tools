@@ -33,6 +33,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
       
       - name: Install dependencies
         run: |
@@ -54,9 +55,21 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
       
+      - name: Cache Nuitka artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\Nuitka\Nuitka
+            ~/.cache/Nuitka
+          key: nuitka-${{ runner.os }}-${{ hashFiles('tui/**/*.py', 'putty_migrate.py', 'build.py') }}
+          restore-keys: |
+            nuitka-${{ runner.os }}-
+      
       - name: Build binary with Nuitka
         run: |
           python build.py --version ${{ steps.get_version.outputs.version }}
+        env:
+          NUITKA_JOBS: '4'
         timeout-minutes: 30
       
       - name: Upload artifact
